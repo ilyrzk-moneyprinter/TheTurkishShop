@@ -14,71 +14,24 @@ const gamePriceRoutes = require('./routes/gamePrice');
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Create Express app
-const app = express();
-const PORT = process.env.PORT || 8080;
+// Create Express router instead of app
+const router = express.Router();
 
-// Security & middleware configuration
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://api.resend.com']
-    }
-  }
-}));
-app.use(bodyParser.json({ limit: '1mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
-
-// Configure CORS
-const allowedOrigins = [
-  'http://localhost:3000', 
-  'http://127.0.0.1:3000',
-  'https://theturkishshop.com',
-  'https://www.theturkishshop.com'
-];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `The CORS policy for this site does not allow access from the specified origin: ${origin}`;
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
-
-// Rate limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Apply rate limiting to all API routes
-app.use('/api', apiLimiter);
-
-// Logging
-app.use(morgan('dev'));
+// Logging middleware
+router.use(morgan('dev'));
 
 // Debug middleware in development mode
 if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log('Request URL:', req.originalUrl);
-    console.log('Request Method:', req.method);
-    console.log('Request Body:', req.body);
+  router.use((req, res, next) => {
+    console.log('API Request URL:', req.originalUrl);
+    console.log('API Request Method:', req.method);
+    console.log('API Request Body:', req.body);
     next();
   });
 }
 
 // API Health Check
-app.get('/api/health', (req, res) => {
+router.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
     message: 'API server is running',
@@ -89,9 +42,9 @@ app.get('/api/health', (req, res) => {
 
 /**
  * Generic email sending endpoint
- * @route POST /api/email/send
+ * @route POST /email/send
  */
-app.post('/api/email/send', async (req, res) => {
+router.post('/email/send', async (req, res) => {
   try {
     const { to, subject, html, text } = req.body;
     
@@ -121,9 +74,9 @@ app.post('/api/email/send', async (req, res) => {
 
 /**
  * Order update notification endpoint
- * @route POST /api/email/order-update
+ * @route POST /email/order-update
  */
-app.post('/api/email/order-update', async (req, res) => {
+router.post('/email/order-update', async (req, res) => {
   try {
     const { order, customerEmail, customerName, status, message } = req.body;
     
@@ -167,50 +120,63 @@ app.post('/api/email/order-update', async (req, res) => {
   }
 });
 
-// Register routes
-app.use('/api', gamePriceRoutes);
+// Register game price routes
+router.use('/', gamePriceRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  
-  // Handle CORS errors specifically
-  if (err.message.includes('CORS')) {
-    return res.status(403).json({
-      success: false,
-      error: 'CORS Error',
-      message: 'Origin not allowed by CORS policy'
-    });
-  }
-
-  // Handle rate limit errors
-  if (err.statusCode === 429) {
-    return res.status(429).json({
-      success: false,
-      error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Please try again later.'
-    });
-  }
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    error: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
-
-// Handle 404 errors
-app.use((req, res) => {
+// Handle 404 errors specific to this router
+router.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Not Found',
-    message: `The requested endpoint ${req.originalUrl} does not exist`
+    message: `The requested API endpoint ${req.originalUrl} does not exist`
   });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// For standalone testing, create server only if directly run (not required)
+if (require.main === module) {
+  // In standalone mode, create full app with security middleware
+  const app = express();
+  const PORT = process.env.PORT || 5001;
+  
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'", 'https://api.resend.com']
+      }
+    }
+  }));
+  app.use(bodyParser.json({ limit: '1mb' }));
+  app.use(bodyParser.urlencoded({ extended: true }));
+  
+  // Configure CORS
+  const allowedOrigins = [
+    'http://localhost:3000', 
+    'http://127.0.0.1:3000',
+    'https://theturkishshop.com'
+  ];
+  
+  app.use(cors({
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg = `The CORS policy for this site does not allow access from the specified origin: ${origin}`;
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+    methods: ['GET', 'POST'],
+    credentials: true
+  }));
+  
+  app.use('/api', router);
+  
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API Server running on port ${PORT} (standalone mode)`);
+  });
+} else {
+  // If imported by another file, export the router
+  console.log('API router loaded as module');
+}
 
-module.exports = app; // Export for testing 
+module.exports = router; 

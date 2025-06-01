@@ -15,6 +15,8 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+console.log(`Starting server with PORT: ${PORT}, NODE_ENV: ${process.env.NODE_ENV}`);
+
 // Configure email transporter
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_HOST || 'smtp.resend.com',
@@ -59,6 +61,14 @@ app.use('/api', apiLimiter);
 app.get('/_health', (req, res) => {
   res.status(200).json({
     status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    message: 'Server is running',
     timestamp: new Date().toISOString()
   });
 });
@@ -146,6 +156,16 @@ app.post('/api/email/order-update', async (req, res) => {
   }
 });
 
+// Try to load the nested API routes if available
+try {
+  // Check if nested API router exists and import it
+  const apiRouter = require('./the-turkish-shop/src/api/server');
+  app.use('/api', apiRouter);
+  console.log('Successfully loaded nested API routes');
+} catch (error) {
+  console.log('No nested API routes found or error loading them:', error.message);
+}
+
 // Serve static files from the React app build directory
 app.use(express.static(path.join(__dirname, 'the-turkish-shop/build')));
 
@@ -163,7 +183,29 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-app.listen(PORT, '0.0.0.0', () => {
+// Create server and bind to port
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});
+
+// Handle errors
+server.on('error', (error) => {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`Port ${PORT} requires elevated privileges`);
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`Port ${PORT} is already in use`);
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+});
+
+module.exports = app; 

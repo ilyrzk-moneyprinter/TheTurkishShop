@@ -1,154 +1,140 @@
-const fetch = require('node-fetch');
+const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+const dotenv = require('dotenv');
 
-// Configure email service
-const RESEND_API_KEY = process.env.RESEND_API_KEY || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4';
-const FROM_EMAIL = 'orders@theturkishshop.com';
-const FROM_NAME = 'The Turkish Shop';
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-// Email templates
-const htmlTemplates = {
-  orderConfirmation: fs.existsSync(path.join(__dirname, 'templates/orderConfirmation.html')) 
-    ? fs.readFileSync(path.join(__dirname, 'templates/orderConfirmation.html'), 'utf8')
-    : null,
-  orderDelivered: fs.existsSync(path.join(__dirname, 'templates/orderDelivered.html'))
-    ? fs.readFileSync(path.join(__dirname, 'templates/orderDelivered.html'), 'utf8')
-    : null
-};
+// Create email transporter
+let transporter;
+
+try {
+  transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.resend.com',
+    port: process.env.EMAIL_PORT || 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER || 'resend',
+      pass: process.env.EMAIL_PASSWORD || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4'
+    }
+  });
+  
+  console.log('Email transporter created');
+} catch (error) {
+  console.error('Failed to create email transporter:', error);
+}
 
 /**
- * Send email using Resend API
+ * Send an email using the configured transporter
  * @param {Object} options - Email options
  * @param {string} options.to - Recipient email
  * @param {string} options.subject - Email subject
- * @param {string} options.html - HTML content
- * @param {string} options.text - Plain text content
- * @returns {Promise<Object>} - Response with success status and message ID or error
+ * @param {string} [options.html] - HTML content (optional)
+ * @param {string} [options.text] - Plain text content (optional)
+ * @returns {Promise<Object>} - Result object with success status
  */
-const sendEmail = async ({ to, subject, html, text }) => {
-  if (!to || !subject || (!html && !text)) {
-    return { success: false, error: 'Missing required email fields' };
+async function sendEmail({ to, subject, html, text }) {
+  if (!transporter) {
+    console.error('Email transporter not available');
+    return { success: false, error: 'Email service not configured' };
   }
 
   try {
-    console.log(`Sending email to ${to} with subject: ${subject}`);
-    
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        from: `${FROM_NAME} <${FROM_EMAIL}>`,
-        to,
-        subject,
-        html,
-        text,
-        tags: [{ name: 'category', value: 'order-notification' }]
-      })
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Resend API error:', errorData);
-      return { 
-        success: false, 
-        error: `Email delivery failed: ${response.status} ${response.statusText}`,
-        details: errorData
-      };
-    }
-
-    const result = await response.json();
-    console.log(`Email sent successfully to ${to}, ID: ${result.id}`);
-    return { success: true, messageId: result.id };
-  } catch (error) {
-    console.error('Error sending email:', error);
-    return { 
-      success: false, 
-      error: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'orders@theturkishshop.com',
+      to,
+      subject,
+      html,
+      text
     };
+    
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Email sent: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    return { success: false, error: error.message };
   }
-};
+}
 
 /**
- * Generates an order update email
- * @param {Object} order - Order data
- * @param {string} status - New order status
- * @param {string} message - Additional message
- * @returns {Object} - Email template with subject, HTML and text content
+ * Generate order update email content
+ * @param {Object} order - Order object
+ * @param {string} status - Order status
+ * @param {string} message - Custom message to include
+ * @returns {Object} - Email template with subject, html and text
  */
-const generateOrderUpdateEmail = (order, status, message) => {
-  const statusColors = {
-    processing: '#ffc107',
-    shipped: '#17a2b8',
-    delivered: '#28a745',
-    cancelled: '#dc3545',
-    delayed: '#6c757d'
-  };
+function generateOrderUpdateEmail(order, status, message) {
+  const statusColor = {
+    'Pending': '#fbbf24',
+    'Processing': '#3b82f6',
+    'Shipped': '#10b981',
+    'Delivered': '#16a34a',
+    'Canceled': '#ef4444',
+    'Refunded': '#8b5cf6',
+    'On Hold': '#f59e0b'
+  }[status] || '#3b82f6';
 
-  const color = statusColors[status.toLowerCase()] || '#007bff';
-  
-  const subject = `Order ${order.orderID} ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+  const subject = `Order #${order.orderID} ${status}`;
   
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-      <div style="background-color: #1a1a1a; color: white; padding: 20px; text-align: center;">
-        <h1 style="margin: 0;">The Turkish Shop</h1>
-        <p style="margin: 10px 0 0 0;">Order Update</p>
-      </div>
-      
-      <div style="padding: 30px; background-color: #f5f5f5;">
-        <div style="background-color: ${color}; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: white; margin: 0; text-align: center;">Your Order is ${status.charAt(0).toUpperCase() + status.slice(1)}</h2>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${subject}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+      <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background-color: #1a1a1a; padding: 20px; text-align: center; color: white;">
+          <h1 style="margin: 0; font-size: 24px;">The Turkish Shop</h1>
+          <p style="margin: 5px 0 0;">Order Status Update</p>
         </div>
         
-        <p style="color: #666;">Order ID: <strong>${order.orderID}</strong></p>
-        
-        <div style="background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #333; margin-top: 0;">Update Details</h3>
-          <p style="color: #555;">${message}</p>
+        <div style="background-color: #f9fafb; padding: 30px; border-bottom: 1px solid #e5e7eb;">
+          <h2 style="margin-top: 0; color: #111827;">Hi there,</h2>
+          <p>Your order status has been updated.</p>
+          
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #111827;">Order #${order.orderID}</h3>
+            <p style="margin-bottom: 5px;"><strong>Status:</strong> <span style="display: inline-block; background-color: ${statusColor}; color: white; padding: 4px 10px; border-radius: 20px; font-size: 14px;">${status}</span></p>
+            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+            ${message ? `<p style="border-left: 4px solid ${statusColor}; padding-left: 10px;">${message}</p>` : ''}
+          </div>
+          
+          <p>If you have any questions about your order, please contact our support team.</p>
         </div>
         
-        <p style="color: #666; margin-top: 30px;">
-          If you have any questions, please don't hesitate to contact our support team.
-        </p>
-        
-        <p style="color: #666;">
-          Best regards,<br>
-          The Turkish Shop Team
-        </p>
+        <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 14px;">
+          <p>&copy; ${new Date().getFullYear()} The Turkish Shop. All rights reserved.</p>
+          <p style="margin: 5px 0 0;">This is an automated message, please do not reply to this email.</p>
+        </div>
       </div>
-      
-      <div style="background-color: #333; color: #999; padding: 20px; text-align: center; font-size: 12px;">
-        <p style="margin: 0;">© ${new Date().getFullYear()} The Turkish Shop. All rights reserved.</p>
-      </div>
-    </div>
+    </body>
+    </html>
   `;
-
+  
+  // Create plain text version
   const text = `
-The Turkish Shop - Order Update
-
-Your Order is ${status.charAt(0).toUpperCase() + status.slice(1)}
-
-Order ID: ${order.orderID}
-
-Update Details:
-${message}
-
-If you have any questions, please don't hesitate to contact our support team.
-
-Best regards,
-The Turkish Shop Team
+    THE TURKISH SHOP
+    ================
+    
+    Order #${order.orderID} Status: ${status}
+    Date: ${new Date().toLocaleDateString()}
+    
+    ${message || 'Your order status has been updated.'}
+    
+    If you have any questions about your order, please contact our support team.
+    
+    © ${new Date().getFullYear()} The Turkish Shop. All rights reserved.
   `;
-
+  
   return { subject, html, text };
-};
+}
 
-module.exports = { 
+module.exports = {
   sendEmail,
   generateOrderUpdateEmail
 }; 
