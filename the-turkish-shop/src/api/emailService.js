@@ -3,9 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
 
-// Load environment variables
+// Load environment variables safely
 try {
-  const envPath = path.resolve(__dirname, '../../.env');
+  const envPath = path.resolve(__dirname, '../../../.env');
   if (fs.existsSync(envPath)) {
     dotenv.config({ path: envPath });
     console.log('Email service: Environment loaded from:', envPath);
@@ -18,8 +18,18 @@ try {
   dotenv.config(); // Try default location as fallback
 }
 
-// Mock email service instead of creating real transporter
-console.log('Email service: Using mock implementation (no port binding)');
+// Create a mock email service that doesn't establish any connections
+const mockEmailService = {
+  sendEmail: async ({ to, subject, html, text }) => {
+    console.log(`[NESTED API MOCK] Would send email to ${to} with subject: ${subject}`);
+    return { success: true, messageId: 'mock-nested-email-id' };
+  }
+};
+
+console.log('Email service: Using mock implementation for Cloud Run');
+
+// Export the mock service
+module.exports = mockEmailService;
 
 /**
  * Send an email using the mock implementation

@@ -1,83 +1,76 @@
 steps:
-# Install main dependencies
-- name: 'gcr.io/cloud-builders/npm'
-  args: ['ci']
-  id: 'install-root-deps'
-
-# Create directories in case they don't exist
-- name: 'ubuntu'
-  args: ['mkdir', '-p', 'the-turkish-shop/src/api/routes']
-  id: 'create-dirs'
-  waitFor: ['-']
-
-# Install React app dependencies
-- name: 'gcr.io/cloud-builders/npm'
-  args: ['ci']
-  dir: 'the-turkish-shop'
-  id: 'install-react-deps'
-  waitFor: ['install-root-deps']
-
-# Install API dependencies
-- name: 'gcr.io/cloud-builders/npm'
-  args: ['ci']
-  dir: 'the-turkish-shop/src/api'
-  id: 'install-api-deps'
-  waitFor: ['create-dirs']
-
-# Verify Node.js installation
-- name: 'node:18-slim'
-  args: ['--version']
+# Verify node and npm installation
+- name: 'node:18'
   id: 'verify-node'
-  waitFor: ['-']
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Node version: $(node --version)"
+      echo "NPM version: $(npm --version)"
+      echo "Directory structure:"
+      find . -type d -not -path "*/node_modules/*" -not -path "*/\.*" | sort
 
-# Build React app
-- name: 'gcr.io/cloud-builders/npm'
-  args: ['run', 'build']
-  dir: 'the-turkish-shop'
-  id: 'build-react'
-  waitFor: ['install-react-deps']
+# Install dependencies
+- name: 'node:18'
+  id: 'install-dependencies'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Installing root dependencies..."
+      npm install
+      echo "Installing frontend dependencies..."
+      cd the-turkish-shop && npm install
+      echo "Installing API dependencies..."
+      cd src/api && npm install
+  waitFor: ['verify-node']
 
-# Verify files before Docker build
-- name: 'ubuntu'
-  args: ['ls', '-la', '.']
-  id: 'verify-files-root'
-  waitFor: ['-']
+# Verify environment is ready for build
+- name: 'node:18'
+  id: 'verify-environment'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Verifying environment setup..."
+      node -e "console.log('Node.js is working correctly'); process.exit(0)"
+      echo "Checking build directory structure..."
+      ls -la the-turkish-shop/
+  waitFor: ['install-dependencies']
 
-- name: 'ubuntu'
-  args: ['ls', '-la', 'the-turkish-shop/build']
-  id: 'verify-react-build'
-  waitFor: ['build-react']
-
-# Build the container image
+# Build react app
+- name: 'node:18'
+  id: 'build-app'
+  entrypoint: 'bash' 
+  args:
+    - '-c'
+    - |
+      echo "Building React app..."
+      cd the-turkish-shop
+      npm run build
+      echo "Build completed. Files in build directory:"
+      ls -la build
+  waitFor: ['verify-environment']
+  
+# Build and push the container
 - name: 'gcr.io/cloud-builders/docker'
-  args: 
+  id: 'build-container'
+  args:
     - 'build'
+    - '--no-cache'
     - '-t'
     - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
-    - '--build-arg'
-    - 'PORT=8080'
     - '.'
-  id: 'build-container'
-  waitFor: ['install-api-deps', 'build-react', 'verify-files-root']
+  waitFor: ['build-app']
 
-# Test the image with health check
+# Push the container to Artifact Registry
 - name: 'gcr.io/cloud-builders/docker'
-  args:
-    - 'run'
-    - '--rm'
-    - '--entrypoint'
-    - '/app/healthcheck.sh'
-    - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
-  id: 'test-container'
-  waitFor: ['build-container']
-
-# Push the container image
-- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-container'
   args:
     - 'push'
     - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
-  id: 'push-container'
-  waitFor: ['test-container']
+  waitFor: ['build-container']
 
 # Deploy to Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -91,23 +84,21 @@ steps:
     - '--platform=managed'
     - '--port=8080'
     - '--allow-unauthenticated'
-    - '--memory=1Gi'
-    - '--cpu=1'
+    - '--memory=2Gi'
+    - '--cpu=2'
     - '--min-instances=0'
     - '--max-instances=10'
-    - '--timeout=30s'
+    - '--timeout=60s'
     - '--set-env-vars=NODE_ENV=production'
     - '--set-env-vars=PORT=8080'
     - '--set-env-vars=EMAIL_TRANSPORT=mock'
   id: 'deploy-cloud-run'
   waitFor: ['push-container']
 
-images:
-- 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
-
-timeout: 1800s # 30 minutes
-
 options:
   logging: CLOUD_LOGGING_ONLY
-  env:
-    - 'NODE_ENV=production' 
+  
+timeout: '1800s'
+
+images:
+  - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop' 

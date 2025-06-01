@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const { PrismaClient } = require('@prisma/client');
 
 // Import routes - with error handling
 let gamePriceRoutes;
@@ -61,12 +62,17 @@ try {
 
 // Load environment variables
 try {
-  const envPath = path.resolve(__dirname, '../../.env');
-  dotenv.config({ path: envPath });
-  console.log('Environment loaded from:', envPath);
+  const envPath = path.resolve(__dirname, '../../../.env');
+  console.log('API: Looking for .env file at:', envPath);
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log('API: Environment loaded from:', envPath);
+  } else {
+    dotenv.config();
+    console.log('API: Using default environment');
+  }
 } catch (error) {
-  console.error('Error loading environment variables:', error);
-  dotenv.config(); // Try default location as fallback
+  console.error('API: Error loading environment variables:', error);
 }
 
 // Create Express router
@@ -187,11 +193,11 @@ router.use((req, res) => {
   });
 });
 
-// For standalone testing, create server only if directly run (not required)
+// Only run standalone server if directly executed
 if (require.main === module) {
   // In standalone mode, create full app with security middleware
   const app = express();
-  const PORT = process.env.PORT || 8080;
+  const PORT = process.env.PORT || 5001; // Use different port for standalone mode
   
   app.use(helmet({
     contentSecurityPolicy: {
@@ -201,42 +207,17 @@ if (require.main === module) {
       }
     }
   }));
-  app.use(bodyParser.json({ limit: '1mb' }));
-  app.use(bodyParser.urlencoded({ extended: true }));
   
-  // Configure CORS
-  const allowedOrigins = [
-    'http://localhost:3000', 
-    'http://127.0.0.1:3000',
-    'https://theturkishshop.com'
-  ];
+  // Mount the router on the app
+  app.use('/', router);
   
-  app.use(cors({
-    origin: function(origin, callback) {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = `The CORS policy for this site does not allow access from the specified origin: ${origin}`;
-        return callback(new Error(msg), false);
-      }
-      return callback(null, true);
-    },
-    methods: ['GET', 'POST'],
-    credentials: true
-  }));
-  
-  app.use('/api', router);
-  
-  // Health check route at root for Cloud Run
-  app.get('/', (req, res) => {
-    res.status(200).send('API server is running');
-  });
-  
+  // Start server with error handling
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`API Server running on port ${PORT} (standalone mode)`);
+    console.log(`Server running on port ${PORT}`);
+  }).on('error', (error) => {
+    console.error('Failed to start API server:', error);
   });
-} else {
-  // If imported by another file, export the router
-  console.log('API router loaded as module');
 }
 
+// Export the router for use in the main application
 module.exports = router; 

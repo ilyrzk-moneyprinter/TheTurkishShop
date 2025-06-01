@@ -1,28 +1,27 @@
-FROM node:18-slim as build
+# Build stage
+FROM node:18-alpine AS build
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files for dependency installation
+# Copy package.json files
 COPY package*.json ./
 COPY the-turkish-shop/package*.json ./the-turkish-shop/
 COPY the-turkish-shop/src/api/package*.json ./the-turkish-shop/src/api/
 
-# Install dependencies for main app first
-RUN npm ci --quiet
+# Install dependencies
+RUN npm install
+RUN cd the-turkish-shop && npm install
+RUN cd the-turkish-shop/src/api && npm install
 
-# Install nested dependencies
-RUN cd the-turkish-shop && npm ci --quiet
-RUN cd the-turkish-shop/src/api && npm ci --quiet
-
-# Copy project files
+# Copy source code
 COPY . .
 
 # Build React app
 RUN cd the-turkish-shop && npm run build
 
 # Production stage
-FROM node:18-slim
+FROM node:18-alpine
 
 WORKDIR /app
 
@@ -39,21 +38,19 @@ COPY --from=build /app/the-turkish-shop/src/api/node_modules ./the-turkish-shop/
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=8080
+ENV EMAIL_TRANSPORT=mock
 
-# Create a directory for email templates if it doesn't exist
-RUN mkdir -p /app/the-turkish-shop/src/api/templates
+# Verify installation
+RUN node -e "console.log('Node.js is working correctly'); process.exit(0)"
 
-# Expose port 8080 for Cloud Run
+# Expose port 8080
 EXPOSE 8080
 
-# Add a simple health check file to troubleshoot startup issues
-RUN echo '#!/bin/sh\nnode -e "console.log(\"Container startup check: Node.js is working\"); process.exit(0)"' > /app/healthcheck.sh && \
-    chmod +x /app/healthcheck.sh
+# Health check
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 CMD wget -qO- http://localhost:8080/health || exit 1
 
-# Verify dependencies before starting
-RUN echo '#!/bin/sh\necho "Listing installed packages:"\nnpm list --depth=0' > /app/verify-deps.sh && \
-    chmod +x /app/verify-deps.sh && \
-    /app/verify-deps.sh
+# Set user to non-root
+USER node
 
-# Start the server with improved error logging
+# Start the server
 CMD ["node", "server.js"] 

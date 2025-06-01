@@ -2,6 +2,7 @@ console.log('==== TURKISH SHOP SERVER STARTING ====');
 console.log(`Node.js version: ${process.version}`);
 console.log(`Current working directory: ${process.cwd()}`);
 console.log(`Environment: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}`);
+console.log('Contents of node_modules:', require('fs').existsSync('./node_modules'));
 
 const express = require('express');
 const cors = require('cors');

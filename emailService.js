@@ -11,10 +11,10 @@ dotenv.config();
 // Path to the actual email service
 const actualEmailServicePath = path.join(__dirname, 'the-turkish-shop/src/api/emailService.js');
 
-// Create a mock email service instead of using actual transporter
+// Create a mock email service
 const mockEmailService = {
   sendEmail: async ({ to, subject, html, text }) => {
-    console.log(`[MOCK] Would send email to ${to} with subject: ${subject}`);
+    console.log(`[MOCK EMAIL] Would send email to ${to} with subject: ${subject}`);
     return { success: true, messageId: 'mock-email-id' };
   },
   
@@ -67,4 +67,6 @@ const mockEmailService = {
 
 // Export the mock email service instead of trying to load the actual one
 console.log('Using mock email service to avoid connection issues');
-module.exports = mockEmailService; 
+module.exports = mockEmailService;
+
+console.log(`Email service initialized in mock mode`); 
