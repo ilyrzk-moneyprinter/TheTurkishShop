@@ -13,7 +13,7 @@ dotenv.config();
 
 // Create Express app
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 8080;
 
 // Configure email transporter
 const transporter = nodemailer.createTransport({
@@ -27,7 +27,18 @@ const transporter = nodemailer.createTransport({
 });
 
 // Security & middleware configuration
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", 'https://api.resend.com', 'https://*.googleapis.com', 'https://*.firebaseio.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'", 'data:']
+    }
+  }
+}));
 app.use(bodyParser.json({ limit: '1mb' }));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
@@ -43,6 +54,14 @@ const apiLimiter = rateLimit({
 
 // Apply rate limiting to all API routes
 app.use('/api', apiLimiter);
+
+// Root route for Cloud Run health checks
+app.get('/_health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
 
 // API Health Check
 app.get('/api/health', (req, res) => {
@@ -127,7 +146,24 @@ app.post('/api/email/order-update', async (req, res) => {
   }
 });
 
+// Serve static files from the React app build directory
+app.use(express.static(path.join(__dirname, 'the-turkish-shop/build')));
+
+// For any request that doesn't match an API route or static file, send the React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'the-turkish-shop/build', 'index.html'));
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.statusCode || 500).json({
+    success: false,
+    error: err.message || 'Internal Server Error'
+  });
+});
+
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 }); 
