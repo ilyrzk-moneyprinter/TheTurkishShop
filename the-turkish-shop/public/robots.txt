@@ -1,0 +1,17 @@
+# https://www.robotstxt.org/robotstxt.html
+# robots.txt for The Turkish Shop
+
+User-agent: *
+Allow: /
+
+# Directories
+Allow: /products/
+Allow: /help/
+Allow: /vouches/
+
+# Disallow admin areas
+Disallow: /admin/
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://theturkishshop.com/sitemap.xml

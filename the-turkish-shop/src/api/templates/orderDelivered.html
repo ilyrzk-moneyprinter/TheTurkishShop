@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Delivered - The Turkish Shop</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+    <tr>
+      <td style="padding: 20px 0;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" align="center" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #28a745; padding: 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0;">Order Delivered!</h1>
+              <p style="color: #ffffff; margin-top: 10px;">Your digital purchase is ready</p>
+            </td>
+          </tr>
+          
+          <!-- Order details -->
+          <tr>
+            <td style="padding: 30px;">
+              <h2 style="color: #333333; margin-top: 0;">Your Order Has Been Delivered</h2>
+              <p style="color: #666666; line-height: 1.5;">Great news! Your order has been delivered. Please find the details of your purchase below.</p>
+              
+              <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                <p style="margin: 0 0 10px; color: #333333; font-weight: bold;">Order #{{orderID}}</p>
+                <p style="margin: 0; color: #666666;">Date: {{orderDate}}</p>
+                <p style="margin: 0; color: #666666;">Delivery Date: {{deliveryDate}}</p>
+              </div>
+              
+              <h3 style="color: #333333; margin-top: 30px;">Delivery Information</h3>
+              <div style="background-color: #e9f7ef; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                <h4 style="color: #333333; margin-top: 0;">{{productName}}</h4>
+                <p style="color: #666666; line-height: 1.5;">{{deliveryInstructions}}</p>
+                
+                {{#hasCredentials}}
+                <div style="background-color: #ffffff; padding: 15px; border: 1px dashed #cccccc; margin-top: 15px;">
+                  <p style="margin: 0 0 10px; color: #333333; font-weight: bold;">Your Access Information:</p>
+                  <p style="margin: 0; color: #666666;">Username/Email: {{deliveryUsername}}</p>
+                  <p style="margin: 0; color: #666666;">Password: {{deliveryPassword}}</p>
+                </div>
+                {{/hasCredentials}}
+                
+                {{#hasDownloadLink}}
+                <p style="margin-top: 15px;">
+                  <a href="{{downloadLink}}" style="background-color: #28a745; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px; display: inline-block;">Download Now</a>
+                </p>
+                {{/hasDownloadLink}}
+              </div>
+              
+              <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eeeeee;">
+                <h3 style="color: #333333;">Need Help?</h3>
+                <p style="color: #666666; line-height: 1.5;">If you have any issues with your purchase or need assistance, our support team is here to help.</p>
+                <p style="color: #666666; line-height: 1.5; margin-bottom: 5px;">Email: support@theturkishshop.com</p>
+                <p style="color: #666666; line-height: 1.5;">Discord: discord.gg/theturkishshop</p>
+              </div>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f4f4f4; padding: 20px; text-align: center; color: #999999; font-size: 12px;">
+              <p style="margin: 0 0 5px;">Thank you for shopping with us!</p>
+              <p style="margin: 0;">© 2023 The Turkish Shop. All rights reserved.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html> 

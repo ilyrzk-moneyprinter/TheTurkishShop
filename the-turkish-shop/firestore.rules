@@ -1,0 +1,66 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Temporary: Allow senpaimc04@gmail.com to initialize
+    function isSetupUser() {
+      return isSignedIn() && request.auth.token.email == 'senpaimc04@gmail.com';
+    }
+    
+    // Products collection - public read, admin write
+    match /products/{productId} {
+      allow read: if true; // Public can view products
+      allow write: if isAdmin() || isSetupUser();
+    }
+    
+    // Vouches collection - public read, admin write
+    match /vouches/{vouchId} {
+      allow read: if true; // Public can view vouches
+      allow write: if isAdmin() || isSetupUser();
+    }
+    
+    // Users collection - restricted access
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin() || isSetupUser());
+    }
+    
+    // Orders collection
+    match /orders/{orderId} {
+      allow read: if isSignedIn() && 
+                  (resource.data.buyerEmail == request.auth.token.email || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Receipt forms collection
+    match /receiptForms/{formId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // Help requests collection
+    match /helpRequests/{requestId} {
+      allow read: if isSignedIn() && 
+                  (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Promo codes collection
+    match /promoCodes/{codeId} {
+      allow read: if true; // Public can check promo codes
+      allow write: if isAdmin();
+    }
+  }
+} 

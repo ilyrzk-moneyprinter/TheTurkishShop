@@ -1,0 +1,72 @@
+{
+  "name": "the-turkish-shop",
+  "version": "0.1.0",
+  "private": true,
+  "proxy": "http://localhost:5001",
+  "dependencies": {
+    "@fontsource/geist-sans": "^5.2.5",
+    "@fontsource/inter": "^5.2.5",
+    "@sendgrid/mail": "^8.1.5",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/axios": "^0.9.36",
+    "@types/dompurify": "^3.0.5",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.126",
+    "@types/react-helmet-async": "^1.0.1",
+    "@types/react-icons": "^2.2.7",
+    "autoprefixer": "^10.4.4",
+    "axios": "^1.9.0",
+    "dompurify": "^3.2.6",
+    "firebase-admin": "^13.4.0",
+    "firebase-functions": "^6.3.2",
+    "framer-motion": "^12.15.0",
+    "lucide-react": "^0.511.0",
+    "postcss": "^8.4.12",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-helmet-async": "^2.0.5",
+    "react-hot-toast": "^2.5.2",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^7.6.1",
+    "react-scripts": "5.0.1",
+    "resend": "^4.5.1",
+    "tailwindcss": "^3.0.24",
+    "typescript": "^4.9.5",
+    "uuid": "^11.1.0",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "api": "cd src/api && node server.js"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "@types/uuid": "^10.0.0",
+    "postcss-cli": "^11.0.1"
+  }
+}

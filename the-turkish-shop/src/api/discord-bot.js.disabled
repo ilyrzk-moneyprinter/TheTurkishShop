@@ -1,0 +1,329 @@
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+// const admin = require('firebase-admin'); // Commented out - not needed in API server
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
+
+// Initialize Discord client
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.DirectMessages
+  ]
+});
+
+// Discord bot configuration
+const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN || '';
+const GUILD_ID = process.env.DISCORD_GUILD_ID || '';
+const ORDER_CHANNEL_ID = process.env.DISCORD_ORDER_CHANNEL_ID || '';
+const SUPPORT_CHANNEL_ID = process.env.DISCORD_SUPPORT_CHANNEL_ID || '';
+const ADMIN_ROLE_ID = process.env.DISCORD_ADMIN_ROLE_ID || '';
+
+// Initialize Firebase Admin if not already initialized
+// Commented out - Firebase is handled by the main React app
+/*
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+    })
+  });
+}
+
+const db = admin.firestore();
+*/
+
+// Bot ready event
+client.once('ready', () => {
+  console.log(`Discord bot logged in as ${client.user.tag}!`);
+  
+  // Set bot status
+  client.user.setActivity('orders | !help', { type: 'WATCHING' });
+});
+
+// Message create event
+client.on('messageCreate', async (message) => {
+  // Ignore bot messages
+  if (message.author.bot) return;
+  
+  // Command prefix
+  if (!message.content.startsWith('!')) return;
+  
+  const args = message.content.slice(1).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+  
+  // Help command
+  if (command === 'help') {
+    const helpEmbed = new EmbedBuilder()
+      .setColor(0x7C3AED)
+      .setTitle('The Turkish Shop Bot Commands')
+      .setDescription('Here are all available commands:')
+      .addFields(
+        { name: '!help', value: 'Shows this help message', inline: true },
+        { name: '!order <orderID>', value: 'Check order status', inline: true },
+        { name: '!products', value: 'View available products', inline: true },
+        { name: '!support', value: 'Create a support ticket', inline: true },
+        { name: '!stats', value: 'View shop statistics (Admin)', inline: true }
+      )
+      .setFooter({ text: 'The Turkish Shop', iconURL: client.user.displayAvatarURL() })
+      .setTimestamp();
+    
+    await message.reply({ embeds: [helpEmbed] });
+  }
+  
+  // Order status command
+  else if (command === 'order') {
+    const orderID = args[0];
+    
+    if (!orderID) {
+      return message.reply('Please provide an order ID. Usage: `!order <orderID>`');
+    }
+    
+    // Firebase functionality commented out - would need to make API call to main app
+    return message.reply('Order lookup is currently unavailable. Please check the website for order status.');
+    
+    /*
+    try {
+      const orderDoc = await db.collection('orders').doc(orderID).get();
+      
+      if (!orderDoc.exists) {
+        return message.reply('Order not found. Please check your order ID.');
+      }
+      
+      const order = orderDoc.data();
+      const statusColor = getStatusColor(order.status);
+      
+      const orderEmbed = new EmbedBuilder()
+        .setColor(statusColor)
+        .setTitle(`Order #${orderID}`)
+        .setDescription(`Status: **${order.status.toUpperCase()}**`)
+        .addFields(
+          { name: 'Product', value: order.product, inline: true },
+          { name: 'Price', value: `£${order.totalPrice || order.price}`, inline: true },
+          { name: 'Delivery Type', value: order.deliveryType || 'Standard', inline: true },
+          { name: 'Created', value: new Date(order.createdAt.seconds * 1000).toLocaleString(), inline: false }
+        )
+        .setFooter({ text: 'The Turkish Shop', iconURL: client.user.displayAvatarURL() })
+        .setTimestamp();
+      
+      if (order.deliveryValue && order.status === 'delivered') {
+        orderEmbed.addFields({ name: 'Delivery Content', value: `||${order.deliveryValue}||`, inline: false });
+      }
+      
+      await message.reply({ embeds: [orderEmbed] });
+    } catch (error) {
+      console.error('Error fetching order:', error);
+      await message.reply('An error occurred while fetching your order. Please try again later.');
+    }
+    */
+  }
+  
+  // Products command
+  else if (command === 'products') {
+    const productsEmbed = new EmbedBuilder()
+      .setColor(0x7C3AED)
+      .setTitle('Available Products')
+      .setDescription('Browse our product catalog:')
+      .addFields(
+        { name: '🎮 Gaming', value: 'Valorant Points, Apex Coins, FIFA Points, Roblox Robux', inline: false },
+        { name: '🎵 Subscriptions', value: 'Spotify Premium, Discord Nitro', inline: false },
+        { name: '🎯 Game Stores', value: 'Steam Games, PlayStation Games', inline: false },
+        { name: '💎 More', value: 'Brawl Stars Gems, Call of Duty Points, Rainbow 6 Credits', inline: false }
+      )
+      .setFooter({ text: 'Visit our website for detailed pricing!', iconURL: client.user.displayAvatarURL() })
+      .setTimestamp();
+    
+    await message.reply({ embeds: [productsEmbed] });
+  }
+  
+  // Support command
+  else if (command === 'support') {
+    const supportEmbed = new EmbedBuilder()
+      .setColor(0x7C3AED)
+      .setTitle('Need Help?')
+      .setDescription('Choose how you want to contact support:')
+      .setFooter({ text: 'The Turkish Shop Support', iconURL: client.user.displayAvatarURL() })
+      .setTimestamp();
+    
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('create_ticket')
+          .setLabel('Create Ticket')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('🎫'),
+        new ButtonBuilder()
+          .setLabel('Visit Help Center')
+          .setURL('https://theturkishshop.com/help')
+          .setStyle(ButtonStyle.Link)
+          .setEmoji('🌐')
+      );
+    
+    await message.reply({ embeds: [supportEmbed], components: [row] });
+  }
+  
+  // Admin stats command
+  else if (command === 'stats') {
+    // Check if user has admin role
+    if (!message.member.roles.cache.has(ADMIN_ROLE_ID)) {
+      return message.reply('You do not have permission to use this command.');
+    }
+    
+    // Firebase functionality commented out - would need to make API call to main app
+    return message.reply('Stats functionality is currently unavailable. Please check the admin dashboard on the website.');
+    
+    /*
+    try {
+      // Get statistics
+      const ordersSnapshot = await db.collection('orders').get();
+      const usersSnapshot = await db.collection('users').get();
+      
+      const totalOrders = ordersSnapshot.size;
+      const deliveredOrders = ordersSnapshot.docs.filter(doc => doc.data().status === 'delivered').length;
+      const totalRevenue = ordersSnapshot.docs
+        .filter(doc => doc.data().status === 'delivered')
+        .reduce((sum, doc) => sum + parseFloat(doc.data().totalPrice || doc.data().price || 0), 0);
+      
+      const statsEmbed = new EmbedBuilder()
+        .setColor(0x10B981)
+        .setTitle('Shop Statistics')
+        .setDescription('Current shop performance:')
+        .addFields(
+          { name: 'Total Orders', value: totalOrders.toString(), inline: true },
+          { name: 'Delivered Orders', value: deliveredOrders.toString(), inline: true },
+          { name: 'Completion Rate', value: `${((deliveredOrders / totalOrders) * 100).toFixed(1)}%`, inline: true },
+          { name: 'Total Revenue', value: `£${totalRevenue.toFixed(2)}`, inline: true },
+          { name: 'Total Users', value: usersSnapshot.size.toString(), inline: true },
+          { name: 'Avg Order Value', value: `£${(totalRevenue / deliveredOrders).toFixed(2)}`, inline: true }
+        )
+        .setFooter({ text: 'The Turkish Shop Admin', iconURL: client.user.displayAvatarURL() })
+        .setTimestamp();
+      
+      await message.reply({ embeds: [statsEmbed] });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      await message.reply('An error occurred while fetching statistics.');
+    }
+    */
+  }
+});
+
+// Button interaction handler
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+  
+  if (interaction.customId === 'create_ticket') {
+    await interaction.reply({
+      content: 'Creating a support ticket...',
+      ephemeral: true
+    });
+    
+    // Create ticket channel (simplified version)
+    try {
+      const guild = client.guilds.cache.get(GUILD_ID);
+      const ticketChannel = await guild.channels.create({
+        name: `ticket-${interaction.user.username}`,
+        type: 0, // Text channel
+        parent: SUPPORT_CHANNEL_ID,
+        topic: `Support ticket by ${interaction.user.tag}`,
+        permissionOverwrites: [
+          {
+            id: guild.id,
+            deny: ['ViewChannel']
+          },
+          {
+            id: interaction.user.id,
+            allow: ['ViewChannel', 'SendMessages']
+          },
+          {
+            id: ADMIN_ROLE_ID,
+            allow: ['ViewChannel', 'SendMessages']
+          }
+        ]
+      });
+      
+      const welcomeEmbed = new EmbedBuilder()
+        .setColor(0x7C3AED)
+        .setTitle('Support Ticket Created')
+        .setDescription(`Hello ${interaction.user}, welcome to your support ticket!\n\nPlease describe your issue and our team will assist you shortly.`)
+        .setFooter({ text: 'The Turkish Shop Support', iconURL: client.user.displayAvatarURL() })
+        .setTimestamp();
+      
+      await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [welcomeEmbed] });
+      
+      await interaction.editReply({
+        content: `Your ticket has been created: ${ticketChannel}`,
+        ephemeral: true
+      });
+    } catch (error) {
+      console.error('Error creating ticket:', error);
+      await interaction.editReply({
+        content: 'An error occurred while creating your ticket. Please try again later.',
+        ephemeral: true
+      });
+    }
+  }
+});
+
+// Function to send order notification
+async function sendOrderNotification(order) {
+  try {
+    const channel = client.channels.cache.get(ORDER_CHANNEL_ID);
+    if (!channel) return;
+    
+    const orderEmbed = new EmbedBuilder()
+      .setColor(0x7C3AED)
+      .setTitle('New Order Received!')
+      .setDescription(`Order ID: **${order.orderID}**`)
+      .addFields(
+        { name: 'Product', value: order.product, inline: true },
+        { name: 'Price', value: `£${order.totalPrice || order.price}`, inline: true },
+        { name: 'Delivery Type', value: order.deliveryType || 'Standard', inline: true },
+        { name: 'Payment Method', value: order.paymentMethod, inline: true },
+        { name: 'Customer Email', value: order.buyerEmail, inline: true },
+        { name: 'Status', value: order.status, inline: true }
+      )
+      .setFooter({ text: 'The Turkish Shop', iconURL: client.user.displayAvatarURL() })
+      .setTimestamp();
+    
+    if (order.deliveryType === 'Express') {
+      orderEmbed.setColor(0xF59E0B); // Orange for express orders
+    }
+    
+    await channel.send({ embeds: [orderEmbed] });
+  } catch (error) {
+    console.error('Error sending order notification:', error);
+  }
+}
+
+// Function to get status color
+function getStatusColor(status) {
+  const colors = {
+    'pending': 0xFBBF24,
+    'Payment Verification': 0xF59E0B,
+    'queued': 0x3B82F6,
+    'in_progress': 0x8B5CF6,
+    'delivered': 0x10B981,
+    'delayed': 0xEF4444,
+    'cancelled': 0x6B7280
+  };
+  return colors[status] || 0x7C3AED;
+}
+
+// Export functions for external use
+module.exports = {
+  client,
+  sendOrderNotification,
+  start: () => {
+    if (DISCORD_TOKEN) {
+      client.login(DISCORD_TOKEN);
+    } else {
+      console.warn('Discord bot token not provided. Bot will not start.');
+    }
+  }
+}; 

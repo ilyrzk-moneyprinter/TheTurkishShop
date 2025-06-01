@@ -1,0 +1,15 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow read access to all files for authenticated users
+    match /payment_proofs/{fileId} {
+      // Allow authenticated users to upload and read payment proofs
+      allow read, write: if request.auth != null;
+    }
+    
+    // Default rule - deny access
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+} 
