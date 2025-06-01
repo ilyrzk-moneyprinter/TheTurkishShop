@@ -1,43 +1,83 @@
 steps:
-# Install dependencies and prune dev dependencies
+# Install main dependencies
 - name: 'gcr.io/cloud-builders/npm'
   args: ['ci']
+  id: 'install-root-deps'
+
+# Create directories in case they don't exist
+- name: 'ubuntu'
+  args: ['mkdir', '-p', 'the-turkish-shop/src/api/routes']
+  id: 'create-dirs'
+  waitFor: ['-']
 
 # Install React app dependencies
 - name: 'gcr.io/cloud-builders/npm'
   args: ['ci']
   dir: 'the-turkish-shop'
+  id: 'install-react-deps'
+  waitFor: ['install-root-deps']
 
-# Install API dependencies if they exist
+# Install API dependencies
 - name: 'gcr.io/cloud-builders/npm'
   args: ['ci']
   dir: 'the-turkish-shop/src/api'
   id: 'install-api-deps'
+  waitFor: ['create-dirs']
+
+# Verify Node.js installation
+- name: 'node:18-slim'
+  args: ['--version']
+  id: 'verify-node'
   waitFor: ['-']
-  ignoreFailure: true # Continue if there is no package.json
 
 # Build React app
 - name: 'gcr.io/cloud-builders/npm'
   args: ['run', 'build']
   dir: 'the-turkish-shop'
+  id: 'build-react'
+  waitFor: ['install-react-deps']
+
+# Verify files before Docker build
+- name: 'ubuntu'
+  args: ['ls', '-la', '.']
+  id: 'verify-files-root'
   waitFor: ['-']
 
-# Build and push the container image
+- name: 'ubuntu'
+  args: ['ls', '-la', 'the-turkish-shop/build']
+  id: 'verify-react-build'
+  waitFor: ['build-react']
+
+# Build the container image
 - name: 'gcr.io/cloud-builders/docker'
   args: 
     - 'build'
     - '-t'
     - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+    - '--build-arg'
+    - 'PORT=8080'
     - '.'
-  waitFor: ['install-api-deps']
+  id: 'build-container'
+  waitFor: ['install-api-deps', 'build-react', 'verify-files-root']
 
-# Test the image with a basic health check
+# Test the image with health check
 - name: 'gcr.io/cloud-builders/docker'
   args:
     - 'run'
+    - '--rm'
     - '--entrypoint'
     - '/app/healthcheck.sh'
     - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+  id: 'test-container'
+  waitFor: ['build-container']
+
+# Push the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'push'
+    - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+  id: 'push-container'
+  waitFor: ['test-container']
 
 # Deploy to Cloud Run
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -51,11 +91,15 @@ steps:
     - '--platform=managed'
     - '--port=8080'
     - '--allow-unauthenticated'
-    - '--memory=512Mi'
+    - '--memory=1Gi'
     - '--cpu=1'
     - '--min-instances=0'
     - '--max-instances=10'
+    - '--timeout=30s'
     - '--set-env-vars=NODE_ENV=production'
+    - '--set-env-vars=PORT=8080'
+  id: 'deploy-cloud-run'
+  waitFor: ['push-container']
 
 images:
 - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
@@ -63,4 +107,6 @@ images:
 timeout: 1800s # 30 minutes
 
 options:
-  logging: CLOUD_LOGGING_ONLY 
+  logging: CLOUD_LOGGING_ONLY
+  env:
+    - 'NODE_ENV=production' 

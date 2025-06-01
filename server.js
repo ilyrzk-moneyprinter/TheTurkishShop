@@ -7,6 +7,7 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const nodemailer = require('nodemailer');
+const fs = require('fs');
 
 // Load environment variables
 dotenv.config();
@@ -16,17 +17,25 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 console.log(`Starting server with PORT: ${PORT}, NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`Current directory: ${__dirname}`);
+console.log(`Files in current directory: ${fs.readdirSync(__dirname).join(', ')}`);
 
 // Configure email transporter
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.resend.com',
-  port: process.env.EMAIL_PORT || 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER || 'resend',
-    pass: process.env.EMAIL_PASSWORD || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4'
-  }
-});
+let transporter;
+try {
+  transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.resend.com',
+    port: process.env.EMAIL_PORT || 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER || 'resend',
+      pass: process.env.EMAIL_PASSWORD || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4'
+    }
+  });
+  console.log('Email transporter created successfully');
+} catch (error) {
+  console.error('Failed to create email transporter:', error);
+}
 
 // Security & middleware configuration
 app.use(helmet({
@@ -102,6 +111,11 @@ app.post('/api/email/send', async (req, res) => {
       text
     };
     
+    if (!transporter) {
+      console.error('Email transporter not available');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
+    
     const info = await transporter.sendMail(mailOptions);
     res.json({ success: true, messageId: info.messageId });
   } catch (error) {
@@ -141,6 +155,11 @@ app.post('/api/email/order-update', async (req, res) => {
       </div>
     `;
     
+    if (!transporter) {
+      console.error('Email transporter not available');
+      return res.status(500).json({ error: 'Email service not configured' });
+    }
+    
     const mailOptions = {
       from: process.env.EMAIL_FROM || 'orders@theturkishshop.com',
       to: customerEmail,
@@ -159,20 +178,38 @@ app.post('/api/email/order-update', async (req, res) => {
 // Try to load the nested API routes if available
 try {
   // Check if nested API router exists and import it
-  const apiRouter = require('./the-turkish-shop/src/api/server');
-  app.use('/api', apiRouter);
-  console.log('Successfully loaded nested API routes');
+  const nestedApiPath = path.join(__dirname, 'the-turkish-shop', 'src', 'api', 'server.js');
+  
+  console.log(`Checking for nested API at path: ${nestedApiPath}`);
+  console.log(`Path exists: ${fs.existsSync(nestedApiPath)}`);
+  
+  if (fs.existsSync(nestedApiPath)) {
+    const apiRouter = require(nestedApiPath);
+    app.use('/api', apiRouter);
+    console.log('Successfully loaded nested API routes');
+  } else {
+    console.log('Nested API file not found at expected path');
+  }
 } catch (error) {
-  console.log('No nested API routes found or error loading them:', error.message);
+  console.log('Error loading nested API routes:', error.message);
 }
 
 // Serve static files from the React app build directory
-app.use(express.static(path.join(__dirname, 'the-turkish-shop/build')));
+const reactBuildPath = path.join(__dirname, 'the-turkish-shop/build');
+console.log(`Checking for React build at: ${reactBuildPath}`);
+console.log(`Path exists: ${fs.existsSync(reactBuildPath)}`);
 
-// For any request that doesn't match an API route or static file, send the React app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'the-turkish-shop/build', 'index.html'));
-});
+if (fs.existsSync(reactBuildPath)) {
+  app.use(express.static(reactBuildPath));
+  console.log('Serving static files from React build directory');
+  
+  // For any request that doesn't match an API route or static file, send the React app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(reactBuildPath, 'index.html'));
+  });
+} else {
+  console.log('React build directory not found');
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -206,6 +243,15 @@ server.on('error', (error) => {
     default:
       throw error;
   }
+});
+
+// Handle process termination
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
 });
 
 module.exports = app; 

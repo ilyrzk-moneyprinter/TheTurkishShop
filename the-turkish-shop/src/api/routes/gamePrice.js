@@ -104,9 +104,9 @@ router.post('/fetch-game', async (req, res) => {
     }
   } catch (error) {
     console.error('Error fetching game data:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Internal server error'
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error processing game fetch request'
     });
   }
 });
@@ -162,7 +162,7 @@ router.post('/test-ps-id', (req, res) => {
 router.get('/game-price/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
-    service: 'game-price-api',
+    service: 'Game Price API',
     timestamp: new Date().toISOString()
   });
 });

@@ -4,7 +4,19 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 
 // Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+try {
+  const envPath = path.resolve(__dirname, '../../.env');
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    console.log('Email service: Environment loaded from:', envPath);
+  } else {
+    dotenv.config();
+    console.log('Email service: Using default environment');
+  }
+} catch (error) {
+  console.error('Email service: Error loading environment variables:', error);
+  dotenv.config(); // Try default location as fallback
+}
 
 // Create email transporter
 let transporter;
@@ -20,9 +32,9 @@ try {
     }
   });
   
-  console.log('Email transporter created');
+  console.log('Email service: Transporter created');
 } catch (error) {
-  console.error('Failed to create email transporter:', error);
+  console.error('Email service: Failed to create transporter:', error);
 }
 
 /**
@@ -36,7 +48,7 @@ try {
  */
 async function sendEmail({ to, subject, html, text }) {
   if (!transporter) {
-    console.error('Email transporter not available');
+    console.error('Email service: Transporter not available');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -50,10 +62,10 @@ async function sendEmail({ to, subject, html, text }) {
     };
     
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Email sent: ${info.messageId}`);
+    console.log(`Email service: Email sent: ${info.messageId}`);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Failed to send email:', error);
+    console.error('Email service: Failed to send email:', error);
     return { success: false, error: error.message };
   }
 }

@@ -1,0 +1,82 @@
+# Version control
+.git
+.gitignore
+.github
+
+# Node.js dependencies
+node_modules
+*/node_modules
+*/*/node_modules
+
+# Development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output that we'll regenerate
+the-turkish-shop/build
+dist
+build
+
+# Docker files
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Cloud deployment
+.firebase/
+.firebaserc
+firebase.json
+.gcloudignore
+cloudbuild.yaml
+
+# CI/CD
+.travis.yml
+.circleci/
+.github/
+
+# Testing
+coverage/
+__tests__/
+*.test.js
+*.spec.js
+
+# Documentation
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDEs and editors
+.idea/
+.vscode/
+*.sublime-*
+*.code-workspace
+
+# Additional files
+.env.local
+.env.development
+.github
+.vscode
+*.md
+!README.md
+tests/
+the-turkish-shop/node_modules/
+the-turkish-shop/build/
+firebase-debug.log
+ui-debug.log
+functions/node_modules/ 

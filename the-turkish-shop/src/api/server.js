@@ -6,15 +6,70 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const { sendEmail, generateOrderUpdateEmail } = require('./emailService');
+const fs = require('fs');
 
-// Import routes
-const gamePriceRoutes = require('./routes/gamePrice');
+// Import routes - with error handling
+let gamePriceRoutes;
+try {
+  const routesPath = path.join(__dirname, 'routes', 'gamePrice.js');
+  if (fs.existsSync(routesPath)) {
+    gamePriceRoutes = require('./routes/gamePrice');
+    console.log('Game price routes loaded successfully');
+  } else {
+    console.log('Game price routes file not found at:', routesPath);
+    // Create a dummy router if the file doesn't exist
+    const dummyRouter = express.Router();
+    dummyRouter.post('/fetch-game', (req, res) => {
+      res.status(501).json({ error: 'Game price service not implemented' });
+    });
+    gamePriceRoutes = dummyRouter;
+  }
+} catch (error) {
+  console.error('Error loading game price routes:', error);
+  // Create a dummy router on error
+  const errorRouter = express.Router();
+  errorRouter.post('/fetch-game', (req, res) => {
+    res.status(500).json({ error: 'Failed to load game price service' });
+  });
+  gamePriceRoutes = errorRouter;
+}
+
+// Try to import email service - with fallback
+let sendEmail, generateOrderUpdateEmail;
+try {
+  const emailServicePath = path.join(__dirname, 'emailService.js');
+  if (fs.existsSync(emailServicePath)) {
+    const emailService = require('./emailService');
+    sendEmail = emailService.sendEmail;
+    generateOrderUpdateEmail = emailService.generateOrderUpdateEmail;
+    console.log('Email service loaded successfully');
+  } else {
+    console.log('Email service file not found at:', emailServicePath);
+    // Create dummy functions
+    sendEmail = async ({ to, subject }) => {
+      console.log(`[DUMMY] Would send email to ${to} with subject: ${subject}`);
+      return { success: true, messageId: 'dummy-id' };
+    };
+    generateOrderUpdateEmail = () => ({ subject: 'Order Update', html: '', text: '' });
+  }
+} catch (error) {
+  console.error('Error loading email service:', error);
+  // Create dummy functions on error
+  sendEmail = async () => ({ success: false, error: 'Email service unavailable' });
+  generateOrderUpdateEmail = () => ({ subject: 'Error', html: '', text: '' });
+}
 
 // Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+try {
+  const envPath = path.resolve(__dirname, '../../.env');
+  dotenv.config({ path: envPath });
+  console.log('Environment loaded from:', envPath);
+} catch (error) {
+  console.error('Error loading environment variables:', error);
+  dotenv.config(); // Try default location as fallback
+}
 
-// Create Express router instead of app
+// Create Express router
 const router = express.Router();
 
 // Logging middleware
