@@ -1,82 +1,138 @@
 # Cloud Run Deployment Guide for The Turkish Shop
 
-## Overview
-This guide explains how to deploy the API server to Google Cloud Run so it can serve traffic on port 8080 as required.
+This document provides instructions for deploying The Turkish Shop application to Google Cloud Run.
 
 ## Prerequisites
-- Google Cloud Platform account
-- Google Cloud SDK (gcloud) installed and configured
+
+- Google Cloud SDK installed and configured
 - Docker installed locally
+- Git repository access
+- Google Cloud project with billing enabled
 
-## Environment Variables
-Set the following environment variables in the Cloud Run service:
+## Environment Setup
 
-```
-# Server Configuration
-NODE_ENV=production
-PORT=8080
+1. **Set environment variables:**
 
-# Email Configuration
-EMAIL_HOST=smtp.resend.com
-EMAIL_PORT=587
-EMAIL_USER=resend
-EMAIL_PASSWORD=your_resend_api_key
-EMAIL_FROM=orders@theturkishshop.com
-
-# Firebase Configuration
-FIREBASE_API_KEY=your_firebase_api_key
-FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
-FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-FIREBASE_APP_ID=your_app_id
-FIREBASE_MEASUREMENT_ID=your_measurement_id
-```
-
-## Manual Deployment Steps
-
-### 1. Build the Docker image
 ```bash
-docker build -t gcr.io/[PROJECT_ID]/turkishshop .
+export PROJECT_ID=the-turkish-shop  # Replace with your Google Cloud project ID
+export REGION=us-central1           # Replace with your preferred region
 ```
 
-### 2. Push the image to Google Container Registry
+2. **Configure Google Cloud SDK:**
+
 ```bash
-docker push gcr.io/[PROJECT_ID]/turkishshop
+gcloud auth login
+gcloud config set project $PROJECT_ID
 ```
 
-### 3. Deploy to Cloud Run
+## Manual Deployment Process
+
+### Build and Deploy
+
+1. **Build the Docker image locally:**
+
+```bash
+docker build -t gcr.io/$PROJECT_ID/turkishshop:latest .
+```
+
+2. **Push the image to Google Container Registry:**
+
+```bash
+docker push gcr.io/$PROJECT_ID/turkishshop:latest
+```
+
+3. **Deploy to Cloud Run:**
+
 ```bash
 gcloud run deploy turkishshop \
-  --image=gcr.io/[PROJECT_ID]/turkishshop \
-  --platform=managed \
-  --region=us-central1 \
+  --image gcr.io/$PROJECT_ID/turkishshop:latest \
+  --platform managed \
+  --region $REGION \
   --allow-unauthenticated \
-  --port=8080 \
-  --memory=512Mi \
-  --cpu=1
+  --port 8080 \
+  --memory 512Mi \
+  --cpu 1
 ```
 
-## Continuous Deployment
+## Continuous Deployment with Cloud Build
 
-For automated deployments, set up a Cloud Build trigger using the included `cloudbuild.yaml` file, which will:
+The application uses Cloud Build for continuous deployment. When changes are pushed to the repository, Cloud Build automatically:
 
-1. Build the Docker image
-2. Push it to Container Registry
-3. Deploy to Cloud Run
+1. Builds the Docker image
+2. Pushes it to Google Container Registry
+3. Deploys it to Cloud Run
+
+### Cloud Build Configuration
+
+The `cloudbuild.yaml` file in the repository root defines the CI/CD pipeline.
+
+## Important Notes
+
+### Port Configuration
+
+- Cloud Run expects the application to listen on the port specified by the `PORT` environment variable (default 8080)
+- The application must bind to `0.0.0.0` (all interfaces), not just localhost
+
+### Health Checks
+
+- Cloud Run performs health checks to ensure the container is running properly
+- A `/_health` endpoint is provided in the application for this purpose
+
+### Environment Variables
+
+The following environment variables can be set in the Cloud Run service:
+
+- `NODE_ENV`: Set to `production` for production deployments
+- `PORT`: Set to `8080` for Cloud Run (this is set automatically)
+- `RESEND_API_KEY`: API key for the Resend email service
+- `EMAIL_FROM`: Sender email address
+- `EMAIL_HOST`: SMTP host for sending emails
+- `EMAIL_PORT`: SMTP port for sending emails
+- `EMAIL_USER`: SMTP user for sending emails
+- `EMAIL_PASSWORD`: SMTP password for sending emails
 
 ## Troubleshooting
 
-### Container fails to start
-Check the logs for specific errors:
+### Container Startup Issues
+
+If the container fails to start, check the Cloud Run logs for errors:
+
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=turkishshop" --limit=10
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=turkishshop"
 ```
 
-### Common issues:
-- **Port issues**: Make sure the server listens on `process.env.PORT` (8080 by default)
-- **Missing dependencies**: Verify all required modules are listed in package.json
-- **Environment variables**: Confirm all required env vars are set in Cloud Run
+Common issues:
+1. **Port binding issues**: Make sure the app listens on `0.0.0.0:8080`
+2. **Dependency issues**: Ensure all dependencies are properly installed
+3. **Permissions issues**: Verify service account permissions
 
-## Health Checks
-Cloud Run performs health checks on the root endpoint (`/`). Ensure that your application responds to GET requests at the root path with a 200 status code. 
+### Memory/CPU Limits
+
+If the application crashes due to memory limits, you can increase resources:
+
+```bash
+gcloud run services update turkishshop --memory 1Gi --cpu 2
+```
+
+## Monitoring and Logging
+
+1. **View application logs:**
+
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=turkishshop"
+```
+
+2. **Monitor service performance:**
+   - Go to the Google Cloud Console
+   - Navigate to Cloud Run > turkishshop
+   - View the Metrics tab
+
+## Rollback Procedure
+
+To rollback to a previous revision:
+
+```bash
+gcloud run services update-traffic turkishshop --to-revisions=REVISION_ID=100
+```
+
+Replace `REVISION_ID` with the ID of the revision you want to rollback to. 
