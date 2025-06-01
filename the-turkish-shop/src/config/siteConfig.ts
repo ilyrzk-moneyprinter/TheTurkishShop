@@ -19,10 +19,10 @@ export const siteConfig = {
   discord: {
     inviteLink: "https://discord.gg/theturkishshop",
     username: "theturkishshop",
-    botToken: "", // Add your Discord bot token here
-    serverId: "", // Add your Discord server ID here
-    orderChannelId: "", // Channel ID for order notifications
-    supportChannelId: "" // Channel ID for support tickets
+    botToken: process.env.REACT_APP_DISCORD_BOT_TOKEN || "", 
+    serverId: process.env.REACT_APP_DISCORD_SERVER_ID || "", 
+    orderChannelId: process.env.REACT_APP_DISCORD_ORDER_CHANNEL_ID || "", 
+    supportChannelId: process.env.REACT_APP_DISCORD_SUPPORT_CHANNEL_ID || ""
   },
 
   // PayPal Configuration - Rotating Accounts
@@ -96,20 +96,20 @@ export const siteConfig = {
     ]
   },
 
-  // Firebase Configuration
+  // Firebase Configuration - preferably set via environment variables
   firebase: {
-    apiKey: "AIzaSyA_THzJ6K2JmgfQzk6Fxc2oY6337m-9b3w",
-    authDomain: "the-turkish-shop.firebaseapp.com",
-    projectId: "the-turkish-shop",
-    storageBucket: "the-turkish-shop.firebasestorage.app",
-    messagingSenderId: "447958991873",
-    appId: "1:447958991873:web:28c8b83f53d8018ea5ac00",
-    measurementId: "G-REM24ZKRRF"
+    apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "AIzaSyA_THzJ6K2JmgfQzk6Fxc2oY6337m-9b3w",
+    authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "the-turkish-shop.firebaseapp.com",
+    projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "the-turkish-shop",
+    storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "the-turkish-shop.firebasestorage.app",
+    messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "447958991873",
+    appId: process.env.REACT_APP_FIREBASE_APP_ID || "1:447958991873:web:28c8b83f53d8018ea5ac00",
+    measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID || "G-REM24ZKRRF"
   },
 
   // Email Service Configuration (Resend)
   email: {
-    resendApiKey: "", // Add your Resend API key
+    resendApiKey: process.env.REACT_APP_RESEND_API_KEY || "", 
     fromEmail: "noreply@theturkishshop.com",
     orderNotificationEmail: "orders@theturkishshop.com"
   },
@@ -118,7 +118,7 @@ export const siteConfig = {
   currency: {
     defaultCurrency: "USD",
     supportedCurrencies: ["USD", "EUR", "GBP", "TRY"],
-    exchangeRateApiKey: "" // Add your exchange rate API key if needed
+    exchangeRateApiKey: process.env.REACT_APP_EXCHANGE_RATE_API_KEY || ""
   },
 
   // Express Delivery Fee
@@ -139,7 +139,7 @@ export const siteConfig = {
 
   // Google Analytics
   googleAnalytics: {
-    trackingId: "" // Add your GA tracking ID (e.g., G-XXXXXXXXXX)
+    trackingId: process.env.REACT_APP_GA_TRACKING_ID || ""
   },
 
   // Social Media Links
@@ -152,9 +152,10 @@ export const siteConfig = {
 
   // API Configuration
   api: {
-    baseUrl: process.env.NODE_ENV === 'production' ? 'https://api.theturkishshop.com' : 'http://localhost:5001',
-    steamApiKey: "", // For fetching Steam game prices
-    playstationApiKey: "" // If available
+    baseUrl: process.env.REACT_APP_API_BASE_URL || 
+             (process.env.NODE_ENV === 'production' ? 'https://api.theturkishshop.com' : 'http://localhost:5001'),
+    steamApiKey: process.env.REACT_APP_STEAM_API_KEY || "",
+    playstationApiKey: process.env.REACT_APP_PLAYSTATION_API_KEY || ""
   },
 
   // Feature Flags
