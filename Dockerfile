@@ -31,6 +31,7 @@ COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server.js ./
 COPY --from=build /app/emailService.js ./
+COPY --from=build /app/cloud-config.env ./.env
 COPY --from=build /app/the-turkish-shop/build ./the-turkish-shop/build
 COPY --from=build /app/the-turkish-shop/src/api ./the-turkish-shop/src/api
 COPY --from=build /app/the-turkish-shop/src/api/node_modules ./the-turkish-shop/src/api/node_modules

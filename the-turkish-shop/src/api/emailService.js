@@ -1,4 +1,4 @@
-const nodemailer = require('nodemailer');
+// const nodemailer = require('nodemailer');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
@@ -18,27 +18,11 @@ try {
   dotenv.config(); // Try default location as fallback
 }
 
-// Create email transporter
-let transporter;
-
-try {
-  transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.resend.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER || 'resend',
-      pass: process.env.EMAIL_PASSWORD || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4'
-    }
-  });
-  
-  console.log('Email service: Transporter created');
-} catch (error) {
-  console.error('Email service: Failed to create transporter:', error);
-}
+// Mock email service instead of creating real transporter
+console.log('Email service: Using mock implementation (no port binding)');
 
 /**
- * Send an email using the configured transporter
+ * Send an email using the mock implementation
  * @param {Object} options - Email options
  * @param {string} options.to - Recipient email
  * @param {string} options.subject - Email subject
@@ -47,27 +31,8 @@ try {
  * @returns {Promise<Object>} - Result object with success status
  */
 async function sendEmail({ to, subject, html, text }) {
-  if (!transporter) {
-    console.error('Email service: Transporter not available');
-    return { success: false, error: 'Email service not configured' };
-  }
-
-  try {
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'orders@theturkishshop.com',
-      to,
-      subject,
-      html,
-      text
-    };
-    
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`Email service: Email sent: ${info.messageId}`);
-    return { success: true, messageId: info.messageId };
-  } catch (error) {
-    console.error('Email service: Failed to send email:', error);
-    return { success: false, error: error.message };
-  }
+  console.log(`Email service: Mock sending email to ${to} with subject: ${subject}`);
+  return { success: true, messageId: 'mock-message-id' };
 }
 
 /**

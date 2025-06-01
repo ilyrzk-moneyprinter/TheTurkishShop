@@ -1,3 +1,8 @@
+console.log('==== TURKISH SHOP SERVER STARTING ====');
+console.log(`Node.js version: ${process.version}`);
+console.log(`Current working directory: ${process.cwd()}`);
+console.log(`Environment: NODE_ENV=${process.env.NODE_ENV}, PORT=${process.env.PORT}`);
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -6,7 +11,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 
 // Load environment variables
@@ -20,22 +24,16 @@ console.log(`Starting server with PORT: ${PORT}, NODE_ENV: ${process.env.NODE_EN
 console.log(`Current directory: ${__dirname}`);
 console.log(`Files in current directory: ${fs.readdirSync(__dirname).join(', ')}`);
 
-// Configure email transporter
-let transporter;
-try {
-  transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.resend.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER || 'resend',
-      pass: process.env.EMAIL_PASSWORD || 're_UBRuxCtM_EXUYqZfcXc4va6o4sbfgQaw4'
-    }
-  });
-  console.log('Email transporter created successfully');
-} catch (error) {
-  console.error('Failed to create email transporter:', error);
+// Make sure the PORT env var is honored for Cloud Run
+console.log('Re-verifying PORT value to ensure Cloud Run compatibility...');
+if (process.env.PORT) {
+  console.log(`Using PORT from environment: ${process.env.PORT}`);
+} else {
+  console.log('PORT environment variable not set, using default: 8080');
 }
+
+// Mock email functionality instead of creating a real transporter
+console.log('Using mock email service (no SMTP connections)');
 
 // Security & middleware configuration
 app.use(helmet({
@@ -92,7 +90,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Email endpoint
+// Mock Email endpoint
 app.post('/api/email/send', async (req, res) => {
   try {
     const { to, subject, html, text } = req.body;
@@ -103,28 +101,17 @@ app.post('/api/email/send', async (req, res) => {
       });
     }
     
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'orders@theturkishshop.com',
-      to,
-      subject,
-      html,
-      text
-    };
+    // Log the email but don't actually send it
+    console.log(`[MOCK EMAIL] Would send email to: ${to}, subject: ${subject}`);
     
-    if (!transporter) {
-      console.error('Email transporter not available');
-      return res.status(500).json({ error: 'Email service not configured' });
-    }
-    
-    const info = await transporter.sendMail(mailOptions);
-    res.json({ success: true, messageId: info.messageId });
+    res.json({ success: true, messageId: 'mock-email-id' });
   } catch (error) {
     console.error('Email route error:', error);
-    res.status(500).json({ error: 'Failed to send email' });
+    res.status(500).json({ error: 'Failed to process email request' });
   }
 });
 
-// Order update notification endpoint
+// Mock Order update notification endpoint
 app.post('/api/email/order-update', async (req, res) => {
   try {
     const { order, customerEmail, status, message } = req.body;
@@ -137,41 +124,13 @@ app.post('/api/email/order-update', async (req, res) => {
     
     const subject = `Order ${order.orderID} ${status}`;
     
-    // Simple HTML template for order updates
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #1a1a1a; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0;">The Turkish Shop</h1>
-          <p style="margin: 10px 0 0 0;">Order Update</p>
-        </div>
-        <div style="padding: 30px; background-color: #f5f5f5;">
-          <h2 style="color: #333;">Your Order Status: ${status}</h2>
-          <p style="color: #666;">Order ID: ${order.orderID}</p>
-          <p style="color: #666;">${message || 'Your order status has been updated.'}</p>
-        </div>
-        <div style="background-color: #333; color: #999; padding: 20px; text-align: center; font-size: 12px;">
-          <p style="margin: 0;">© ${new Date().getFullYear()} The Turkish Shop. All rights reserved.</p>
-        </div>
-      </div>
-    `;
+    // Just log it, don't try to send
+    console.log(`[MOCK ORDER EMAIL] Would send order update to: ${customerEmail}, subject: ${subject}, status: ${status}`);
     
-    if (!transporter) {
-      console.error('Email transporter not available');
-      return res.status(500).json({ error: 'Email service not configured' });
-    }
-    
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || 'orders@theturkishshop.com',
-      to: customerEmail,
-      subject,
-      html
-    };
-    
-    const info = await transporter.sendMail(mailOptions);
-    res.json({ success: true, messageId: info.messageId });
+    res.json({ success: true, messageId: 'mock-order-email-id' });
   } catch (error) {
     console.error('Order update email error:', error);
-    res.status(500).json({ error: 'Failed to send order update email' });
+    res.status(500).json({ error: 'Failed to process order update email request' });
   }
 });
 
@@ -220,9 +179,18 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Ensure we catch any unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit the process, just log the error
+});
+
+// More detailed error logging for server startup
 // Create server and bind to port
+console.log(`Attempting to start server on port ${PORT}...`);
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`==== SUCCESS: Server running on port ${PORT} ====`);
+  console.log('Server is ready to accept connections');
 });
 
 // Handle errors

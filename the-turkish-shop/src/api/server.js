@@ -191,7 +191,7 @@ router.use((req, res) => {
 if (require.main === module) {
   // In standalone mode, create full app with security middleware
   const app = express();
-  const PORT = process.env.PORT || 5001;
+  const PORT = process.env.PORT || 8080;
   
   app.use(helmet({
     contentSecurityPolicy: {
@@ -225,6 +225,11 @@ if (require.main === module) {
   }));
   
   app.use('/api', router);
+  
+  // Health check route at root for Cloud Run
+  app.get('/', (req, res) => {
+    res.status(200).send('API server is running');
+  });
   
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`API Server running on port ${PORT} (standalone mode)`);

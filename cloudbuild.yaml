@@ -98,6 +98,7 @@ steps:
     - '--timeout=30s'
     - '--set-env-vars=NODE_ENV=production'
     - '--set-env-vars=PORT=8080'
+    - '--set-env-vars=EMAIL_TRANSPORT=mock'
   id: 'deploy-cloud-run'
   waitFor: ['push-container']
 
