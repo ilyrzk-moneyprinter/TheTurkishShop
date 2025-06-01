@@ -7,7 +7,6 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 const fs = require('fs');
-const { PrismaClient } = require('@prisma/client');
 
 // Import routes - with error handling
 let gamePriceRoutes;
@@ -35,30 +34,23 @@ try {
   gamePriceRoutes = errorRouter;
 }
 
-// Try to import email service - with fallback
-let sendEmail, generateOrderUpdateEmail;
-try {
-  const emailServicePath = path.join(__dirname, 'emailService.js');
-  if (fs.existsSync(emailServicePath)) {
-    const emailService = require('./emailService');
-    sendEmail = emailService.sendEmail;
-    generateOrderUpdateEmail = emailService.generateOrderUpdateEmail;
-    console.log('Email service loaded successfully');
-  } else {
-    console.log('Email service file not found at:', emailServicePath);
-    // Create dummy functions
-    sendEmail = async ({ to, subject }) => {
-      console.log(`[DUMMY] Would send email to ${to} with subject: ${subject}`);
-      return { success: true, messageId: 'dummy-id' };
-    };
-    generateOrderUpdateEmail = () => ({ subject: 'Order Update', html: '', text: '' });
+// Simple mock email functions (without requiring any external modules)
+const mockEmailService = {
+  sendEmail: async ({ to, subject }) => {
+    console.log(`[MOCK EMAIL] Would send email to ${to} with subject: ${subject}`);
+    return { success: true, messageId: 'mock-email-id' };
+  },
+  generateOrderUpdateEmail: (order, status, message) => {
+    const subject = `Order Update: ${status}`;
+    const html = `<p>Order update for ${order?.orderID || 'unknown'}: ${status}</p>`;
+    const text = `Order update for ${order?.orderID || 'unknown'}: ${status}`;
+    return { subject, html, text };
   }
-} catch (error) {
-  console.error('Error loading email service:', error);
-  // Create dummy functions on error
-  sendEmail = async () => ({ success: false, error: 'Email service unavailable' });
-  generateOrderUpdateEmail = () => ({ subject: 'Error', html: '', text: '' });
-}
+};
+
+// Use the mock email functions
+const sendEmail = mockEmailService.sendEmail;
+const generateOrderUpdateEmail = mockEmailService.generateOrderUpdateEmail;
 
 // Load environment variables
 try {
@@ -117,16 +109,8 @@ router.post('/email/send', async (req, res) => {
       });
     }
 
-    console.log(`Sending email to ${to}...`);
-    const result = await sendEmail({ to, subject, html, text });
-    
-    if (result.success) {
-      console.log(`Email sent successfully to ${to}`);
-      return res.status(200).json({ success: true, messageId: result.messageId });
-    } else {
-      console.error(`Failed to send email to ${to}:`, result.error);
-      return res.status(500).json({ success: false, error: result.error });
-    }
+    console.log(`[MOCK] Would send email to ${to}...`);
+    return res.status(200).json({ success: true, messageId: 'mock-message-id' });
   } catch (error) {
     console.error('Error in email send endpoint:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -149,34 +133,15 @@ router.post('/email/order-update', async (req, res) => {
       });
     }
     
-    // Generate email template
-    const template = generateOrderUpdateEmail(order, status, message || 'Your order status has been updated.');
+    console.log(`[MOCK] Would send order update email to ${customerEmail} for order ${order.orderID} with status ${status}`);
     
-    // Add customer name to email if provided
-    let htmlContent = template.html;
-    if (customerName) {
-      htmlContent = htmlContent.replace('Hi there,', `Hi ${customerName},`);
-    }
-    
-    // Send the email
-    const result = await sendEmail({
-      to: customerEmail,
-      subject: template.subject,
-      html: htmlContent,
-      text: template.text
+    return res.status(200).json({ 
+      success: true, 
+      messageId: 'mock-order-email-id',
+      status: 'Order update email would be sent (mock mode)'
     });
-    
-    if (result.success) {
-      return res.status(200).json({ 
-        success: true, 
-        messageId: result.messageId,
-        status: 'Order update email sent successfully'
-      });
-    } else {
-      return res.status(500).json({ success: false, error: result.error });
-    }
   } catch (error) {
-    console.error('Error sending order update email:', error);
+    console.error('Error in order update email endpoint:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -203,7 +168,7 @@ if (require.main === module) {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        connectSrc: ["'self'", 'https://api.resend.com']
+        connectSrc: ["'self'"]
       }
     }
   }));

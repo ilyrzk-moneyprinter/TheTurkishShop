@@ -33,15 +33,12 @@ if (process.env.PORT) {
   console.log('PORT environment variable not set, using default: 8080');
 }
 
-// Mock email functionality instead of creating a real transporter
-console.log('Using mock email service (no SMTP connections)');
-
 // Security & middleware configuration
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://api.resend.com', 'https://*.googleapis.com', 'https://*.firebaseio.com'],
+      connectSrc: ["'self'", 'https://*.googleapis.com', 'https://*.firebaseio.com'],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:'],
@@ -89,50 +86,6 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString()
   });
-});
-
-// Mock Email endpoint
-app.post('/api/email/send', async (req, res) => {
-  try {
-    const { to, subject, html, text } = req.body;
-    
-    if (!to || !subject || (!html && !text)) {
-      return res.status(400).json({ 
-        error: 'Missing required fields. Provide to, subject, and either html or text.' 
-      });
-    }
-    
-    // Log the email but don't actually send it
-    console.log(`[MOCK EMAIL] Would send email to: ${to}, subject: ${subject}`);
-    
-    res.json({ success: true, messageId: 'mock-email-id' });
-  } catch (error) {
-    console.error('Email route error:', error);
-    res.status(500).json({ error: 'Failed to process email request' });
-  }
-});
-
-// Mock Order update notification endpoint
-app.post('/api/email/order-update', async (req, res) => {
-  try {
-    const { order, customerEmail, status, message } = req.body;
-    
-    if (!order || !customerEmail || !status) {
-      return res.status(400).json({ 
-        error: 'Missing required fields. Provide order, customerEmail, and status.' 
-      });
-    }
-    
-    const subject = `Order ${order.orderID} ${status}`;
-    
-    // Just log it, don't try to send
-    console.log(`[MOCK ORDER EMAIL] Would send order update to: ${customerEmail}, subject: ${subject}, status: ${status}`);
-    
-    res.json({ success: true, messageId: 'mock-order-email-id' });
-  } catch (error) {
-    console.error('Order update email error:', error);
-    res.status(500).json({ error: 'Failed to process order update email request' });
-  }
 });
 
 // Try to load the nested API routes if available

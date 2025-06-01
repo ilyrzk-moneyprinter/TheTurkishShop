@@ -2,9 +2,15 @@ import React, { useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { motion } from 'framer-motion';
 import { Upload, ExternalLink, Camera, CreditCard } from 'lucide-react';
-import { FaPaypal } from 'react-icons/fa';
 import { getNextPayPalAccount } from '../../config/siteConfig';
 import siteConfig from '../../config/siteConfig';
+
+// Simple PayPal icon component to replace FaPaypal
+const PayPalIcon = ({ className }: { className?: string }) => (
+  <span className={`inline-flex items-center justify-center ${className || ''}`}>
+    PP
+  </span>
+);
 
 // Available payment methods
 interface PaymentMethod {
@@ -43,7 +49,7 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
       id: 'paypal',
       name: 'PayPal',
       subtitle: 'Friends & Family Only',
-      icon: React.createElement(FaPaypal, { className: "h-5 w-5" }),
+      icon: <PayPalIcon className="h-5 w-5" />,
       color: 'text-[#00457C]',
       bgColor: isDarkMode ? 'bg-[#00457C]/20' : 'bg-[#00457C]/10'
     },
@@ -107,7 +113,7 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
           }`}
         >
           <h4 className="font-semibold mb-3 flex items-center">
-            {React.createElement(FaPaypal, { className: "h-5 w-5 mr-2" })}
+            <PayPalIcon className="h-5 w-5 mr-2" />
             PayPal Payment Instructions
           </h4>
           
@@ -148,7 +154,7 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
                   : 'bg-[#00457C] hover:bg-[#00457C]/90 text-white'
               }`}
             >
-              {React.createElement(FaPaypal, { className: "h-5 w-5" })}
+              <PayPalIcon className="h-5 w-5" />
               Open PayPal
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -301,42 +307,42 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
       )}
 
       {/* Payment Method Selection */}
-      <div className="grid grid-cols-2 gap-4">
-        {paymentMethods.map((method) => (
-          <button
-            key={method.id}
-            type="button"
-            onClick={() => {
-              onPaymentMethodChange(method.id);
-              if (method.id === 'paypal') {
-                // Get a new PayPal account for each new order
-                setCurrentPayPalAccount(getNextPayPalAccount());
-              }
-            }}
-            className={`relative p-4 rounded-lg border-2 transition-all ${
-              selectedMethod === method.id
-                ? `${method.bgColor} border-current ${method.color}`
-                : isDarkMode
-                  ? 'bg-gray-800 border-gray-700 hover:border-gray-600'
-                  : 'bg-white border-gray-200 hover:border-gray-300'
-            }`}
-          >
-            <div className={`h-8 w-8 mx-auto mb-2 ${method.color}`}>
-              {method.icon}
+      <div className="space-y-3">
+        <h4 className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
+          Select Payment Method *
+        </h4>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {paymentMethods.map(method => (
+            <div
+              key={method.id}
+              onClick={() => {
+                onPaymentMethodChange(method.id);
+                if (method.id === 'paypal') {
+                  // Get a new PayPal account for each new order
+                  setCurrentPayPalAccount(getNextPayPalAccount());
+                }
+              }}
+              className={`cursor-pointer p-4 rounded-lg border transition-all ${
+                selectedMethod === method.id
+                  ? `${method.bgColor} border-${method.color.replace('text-', '')}/50 ring-2 ring-${method.color.replace('text-', '')}/30`
+                  : `${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} hover:bg-gray-50/10`
+              }`}
+            >
+              <div className={`h-8 w-8 mx-auto mb-2 ${method.color}`}>
+                {method.icon}
+              </div>
+              <h4 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                {method.name}
+              </h4>
+              {method.subtitle && (
+                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {method.subtitle}
+                </p>
+              )}
             </div>
-            <h4 className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              {method.name}
-            </h4>
-            {method.subtitle && (
-              <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                {method.subtitle}
-              </p>
-            )}
-            {selectedMethod === method.id && (
-              <div className={`absolute top-2 right-2 w-3 h-3 rounded-full ${method.color} bg-current`} />
-            )}
-          </button>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

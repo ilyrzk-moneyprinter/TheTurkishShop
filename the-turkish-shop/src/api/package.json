@@ -10,14 +10,17 @@
   },
   "dependencies": {
     "axios": "^1.9.0",
+    "body-parser": "^2.2.0",
     "cheerio": "^1.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
+    "fs": "^0.0.1-security",
     "helmet": "^8.1.0",
     "morgan": "^1.10.0",
-    "nodemailer": "^7.0.3"
+    "nodemailer": "^7.0.3",
+    "path": "^0.12.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

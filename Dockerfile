@@ -29,7 +29,6 @@ WORKDIR /app
 COPY --from=build /app/package*.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/server.js ./
-COPY --from=build /app/emailService.js ./
 COPY --from=build /app/cloud-config.env ./.env
 COPY --from=build /app/the-turkish-shop/build ./the-turkish-shop/build
 COPY --from=build /app/the-turkish-shop/src/api ./the-turkish-shop/src/api
@@ -47,7 +46,7 @@ RUN node -e "console.log('Node.js is working correctly'); process.exit(0)"
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 CMD wget -qO- http://localhost:8080/health || exit 1
+HEALTHCHECK --interval=5s --timeout=3s --start-period=10s --retries=3 CMD wget -qO- http://localhost:8080/_health || exit 1
 
 # Set user to non-root
 USER node
