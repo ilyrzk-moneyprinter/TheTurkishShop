@@ -1,10 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { fetchGameData, normalizePlayStationUrl } = require('../gamePriceChecker');
+const axios = require('axios');
+const cheerio = require('cheerio');
 const cors = require('cors');
 
 // Apply CORS middleware
 router.use(cors());
+
+// Helper function to validate URLs
+function isValidURL(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
 
 /**
  * POST /api/fetch-game
@@ -35,35 +46,67 @@ router.use(cors());
 router.post('/fetch-game', async (req, res) => {
   try {
     const { url } = req.body;
-    
-    console.log('Received URL for fetch-game:', url);
+
+    // Log request details for debugging
+    console.log('Request URL:', req.originalUrl);
+    console.log('Request Method:', req.method);
+    console.log('Request Body:', req.body);
     
     if (!url) {
-      return res.status(400).json({
-        error: 'Missing URL parameter',
-        message: 'Please provide a valid game store URL or product ID'
+      return res.status(400).json({ 
+        success: false, 
+        error: 'URL is required'
       });
     }
-    
-    try {
-      // Let the gamePriceChecker handle the different formats
-      const gameData = await fetchGameData(url);
-      
-      // Return the game data
-      return res.json(gameData);
-    } catch (error) {
-      console.error('Error fetching game data:', error);
+
+    if (!isValidURL(url)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid URL format'
+      });
+    }
+
+    console.log('Received URL for fetch-game:', url);
+
+    // Handle Steam URLs
+    if (url.includes('store.steampowered.com')) {
+      try {
+        const response = await axios.get(url);
+        const $ = cheerio.load(response.data);
+        
+        const gameTitle = $('.apphub_AppName').text().trim();
+        const priceText = $('.game_purchase_price').first().text().trim() || 
+                         $('.discount_final_price').first().text().trim();
+        const imageUrl = $('.game_header_image_full').attr('src');
+        
+        return res.status(200).json({
+          success: true,
+          game: {
+            title: gameTitle,
+            price: priceText,
+            imageUrl: imageUrl,
+            url: url
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching Steam game data:', error.message);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to fetch Steam game data'
+        });
+      }
+    } else {
+      // For unsupported stores
       return res.status(400).json({
-        error: 'Error fetching game data',
-        message: error.message
+        success: false,
+        error: 'Unsupported game store URL'
       });
     }
   } catch (error) {
-    console.error('Error processing game price request:', error);
-    
-    res.status(500).json({
-      error: 'Failed to fetch game data',
-      message: error.message || 'An unexpected error occurred'
+    console.error('Error fetching game data:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Error processing game fetch request'
     });
   }
 });
@@ -113,6 +156,15 @@ router.post('/test-ps-id', (req, res) => {
       message: error.message || 'An unexpected error occurred'
     });
   }
+});
+
+// Health check route
+router.get('/game-price/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'Game Price API',
+    timestamp: new Date().toISOString()
+  });
 });
 
 module.exports = router; 

@@ -7,8 +7,49 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
 
-// Import routes
-const gamePriceRoutes = require('./routes/gamePrice');
+// Import routes - with error handling
+let gamePriceRoutes;
+try {
+  const routesPath = path.join(__dirname, 'routes', 'gamePrice.js');
+  if (fs.existsSync(routesPath)) {
+    gamePriceRoutes = require('./routes/gamePrice');
+    console.log('Game price routes loaded successfully');
+  } else {
+    console.log('Game price routes file not found at:', routesPath);
+    // Create a dummy router if the file doesn't exist
+    const dummyRouter = express.Router();
+    dummyRouter.post('/fetch-game', (req, res) => {
+      res.status(501).json({ error: 'Game price service not implemented' });
+    });
+    gamePriceRoutes = dummyRouter;
+  }
+} catch (error) {
+  console.error('Error loading game price routes:', error);
+  // Create a dummy router on error
+  const errorRouter = express.Router();
+  errorRouter.post('/fetch-game', (req, res) => {
+    res.status(500).json({ error: 'Failed to load game price service' });
+  });
+  gamePriceRoutes = errorRouter;
+}
+
+// Simple mock email functions (without requiring any external modules)
+const mockEmailService = {
+  sendEmail: async ({ to, subject }) => {
+    console.log(`[MOCK EMAIL] Would send email to ${to} with subject: ${subject}`);
+    return { success: true, messageId: 'mock-email-id' };
+  },
+  generateOrderUpdateEmail: (order, status, message) => {
+    const subject = `Order Update: ${status}`;
+    const html = `<p>Order update for ${order?.orderID || 'unknown'}: ${status}</p>`;
+    const text = `Order update for ${order?.orderID || 'unknown'}: ${status}`;
+    return { subject, html, text };
+  }
+};
+
+// Use the mock email functions
+const sendEmail = mockEmailService.sendEmail;
+const generateOrderUpdateEmail = mockEmailService.generateOrderUpdateEmail;
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
@@ -24,59 +65,28 @@ app.use(helmet({
       defaultSrc: ["'self'"],
     }
   }
-}));
-app.use(bodyParser.json({ limit: '1mb' }));
-app.use(bodyParser.urlencoded({ extended: true }));
+} catch (error) {
+  console.error('API: Error loading environment variables:', error);
+}
 
-// Configure CORS
-const allowedOrigins = [
-  'http://localhost:3000', 
-  'http://127.0.0.1:3000',
-  'https://theturkishshop.com',
-  'https://www.theturkishshop.com'
-];
+// Create Express router
+const router = express.Router();
 
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = `The CORS policy for this site does not allow access from the specified origin: ${origin}`;
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
-  methods: ['GET', 'POST'],
-  credentials: true
-}));
-
-// Rate limiting
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Apply rate limiting to all API routes
-app.use('/api', apiLimiter);
-
-// Logging
-app.use(morgan('dev'));
+// Logging middleware
+router.use(morgan('dev'));
 
 // Debug middleware in development mode
 if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log('Request URL:', req.originalUrl);
-    console.log('Request Method:', req.method);
-    console.log('Request Body:', req.body);
+  router.use((req, res, next) => {
+    console.log('API Request URL:', req.originalUrl);
+    console.log('API Request Method:', req.method);
+    console.log('API Request Body:', req.body);
     next();
   });
 }
 
 // API Health Check
-app.get('/api/health', (req, res) => {
+router.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
     message: 'API server is running',
@@ -88,47 +98,40 @@ app.get('/api/health', (req, res) => {
 // Register routes
 app.use('/api', gamePriceRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  
-  // Handle CORS errors specifically
-  if (err.message.includes('CORS')) {
-    return res.status(403).json({
-      success: false,
-      error: 'CORS Error',
-      message: 'Origin not allowed by CORS policy'
-    });
-  }
-
-  // Handle rate limit errors
-  if (err.statusCode === 429) {
-    return res.status(429).json({
-      success: false,
-      error: 'Too Many Requests',
-      message: 'Rate limit exceeded. Please try again later.'
-    });
-  }
-
-  res.status(err.statusCode || 500).json({
-    success: false,
-    error: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
-  });
-});
-
-// Handle 404 errors
-app.use((req, res) => {
+// Handle 404 errors specific to this router
+router.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Not Found',
-    message: `The requested endpoint ${req.originalUrl} does not exist`
+    message: `The requested API endpoint ${req.originalUrl} does not exist`
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Only run standalone server if directly executed
+if (require.main === module) {
+  // In standalone mode, create full app with security middleware
+  const app = express();
+  const PORT = process.env.PORT || 5001; // Use different port for standalone mode
+  
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        connectSrc: ["'self'"]
+      }
+    }
+  }));
+  
+  // Mount the router on the app
+  app.use('/', router);
+  
+  // Start server with error handling
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT}`);
+  }).on('error', (error) => {
+    console.error('Failed to start API server:', error);
+  });
+}
 
-module.exports = app; // Export for testing 
+// Export the router for use in the main application
+module.exports = router; 

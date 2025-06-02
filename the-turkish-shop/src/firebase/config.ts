@@ -8,22 +8,38 @@ import siteConfig from '../config/siteConfig';
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 
-// Check if siteConfig has valid Firebase configuration (not just empty strings)
-const hasValidFirebaseConfig = siteConfig.firebase.apiKey && 
+// First check for environment variables (highest priority)
+const envFirebaseConfig = {
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
+};
+
+// Check if environment variables are available
+const hasValidEnvConfig = envFirebaseConfig.apiKey && envFirebaseConfig.projectId;
+
+// Check if siteConfig has valid Firebase configuration
+const hasValidSiteConfig = siteConfig.firebase.apiKey && 
   siteConfig.firebase.apiKey.trim() !== '' &&
   siteConfig.firebase.projectId && 
   siteConfig.firebase.projectId.trim() !== '';
 
-const firebaseConfig = hasValidFirebaseConfig ? siteConfig.firebase : {
-  // Default/fallback configuration if not set in siteConfig
-  apiKey: "AIzaSyBkx3jzILZLdE0qlgQ5VZbJlmOlLZHJHnA",
-  authDomain: "theturkishshop-7e578.firebaseapp.com",
-  projectId: "theturkishshop-7e578",
-  storageBucket: "theturkishshop-7e578.appspot.com",
-  messagingSenderId: "862169154282",
-  appId: "1:862169154282:web:1ad1e24fd8c0e44f29a303",
-  measurementId: "G-QV6XKSEM7P"
-};
+// Use environment variables first, fallback to siteConfig, then use hardcoded default
+const firebaseConfig = hasValidEnvConfig ? envFirebaseConfig : 
+  (hasValidSiteConfig ? siteConfig.firebase : {
+    // Default/fallback configuration (for development only - this should never be used in production)
+    apiKey: "REPLACE_WITH_ENV_VARIABLE",  
+    authDomain: "REPLACE_WITH_ENV_VARIABLE",
+    projectId: "REPLACE_WITH_ENV_VARIABLE",
+    storageBucket: "REPLACE_WITH_ENV_VARIABLE",
+    messagingSenderId: "REPLACE_WITH_ENV_VARIABLE",
+    appId: "REPLACE_WITH_ENV_VARIABLE",
+    measurementId: "REPLACE_WITH_ENV_VARIABLE"
+  });
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);

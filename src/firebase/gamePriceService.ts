@@ -1,7 +1,8 @@
 import { db } from './config';
 import { collection, addDoc, getDocs, query, orderBy, limit, where, Timestamp, DocumentData } from 'firebase/firestore';
 import axios from 'axios';
-import { User } from 'firebase/auth';
+// Using Firebase User as a type rather than an import
+type FirebaseUser = { uid?: string | null; email?: string | null; };
 
 // Type for game data
 export interface GamePrice {
@@ -126,7 +127,7 @@ async function fetchPlayStationGameData(url: string): Promise<Omit<GamePrice, 'u
  * @param currentUser - Current Firebase user (optional)
  * @returns Game price data
  */
-export async function checkGamePrice(url: string, currentUser: User | null): Promise<GamePrice> {
+export async function checkGamePrice(url: string, currentUser: FirebaseUser | null): Promise<GamePrice> {
   try {
     let gameData;
     

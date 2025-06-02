@@ -1,0 +1,104 @@
+steps:
+# Verify node and npm installation
+- name: 'node:18'
+  id: 'verify-node'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Node version: $(node --version)"
+      echo "NPM version: $(npm --version)"
+      echo "Directory structure:"
+      find . -type d -not -path "*/node_modules/*" -not -path "*/\.*" | sort
+
+# Install dependencies
+- name: 'node:18'
+  id: 'install-dependencies'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Installing root dependencies..."
+      npm install
+      echo "Installing frontend dependencies..."
+      cd the-turkish-shop && npm install
+      echo "Installing API dependencies..."
+      cd src/api && npm install
+  waitFor: ['verify-node']
+
+# Verify environment is ready for build
+- name: 'node:18'
+  id: 'verify-environment'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Verifying environment setup..."
+      node -e "console.log('Node.js is working correctly'); process.exit(0)"
+      echo "Checking build directory structure..."
+      ls -la the-turkish-shop/
+  waitFor: ['install-dependencies']
+
+# Build react app
+- name: 'node:18'
+  id: 'build-app'
+  entrypoint: 'bash' 
+  args:
+    - '-c'
+    - |
+      echo "Building React app..."
+      cd the-turkish-shop
+      npm run build
+      echo "Build completed. Files in build directory:"
+      ls -la build
+  waitFor: ['verify-environment']
+  
+# Build and push the container
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-container'
+  args:
+    - 'build'
+    - '--no-cache'
+    - '-t'
+    - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+    - '.'
+  waitFor: ['build-app']
+
+# Push the container to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-container'
+  args:
+    - 'push'
+    - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+  waitFor: ['build-container']
+
+# Deploy to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'gcloud'
+  args:
+    - 'run'
+    - 'deploy'
+    - 'turkishshop'
+    - '--image=europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop'
+    - '--region=europe-west4'
+    - '--platform=managed'
+    - '--port=8080'
+    - '--allow-unauthenticated'
+    - '--memory=2Gi'
+    - '--cpu=2'
+    - '--min-instances=0'
+    - '--max-instances=10'
+    - '--timeout=60s'
+    - '--set-env-vars=NODE_ENV=production'
+    - '--set-env-vars=PORT=8080'
+    - '--set-env-vars=EMAIL_TRANSPORT=mock'
+  id: 'deploy-cloud-run'
+  waitFor: ['push-container']
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  
+timeout: '1800s'
+
+images:
+  - 'europe-west4-docker.pkg.dev/${PROJECT_ID}/firebaseapphosting-images/turkishshop' 
