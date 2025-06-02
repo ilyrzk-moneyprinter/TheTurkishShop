@@ -15,7 +15,6 @@
     "helmet": "^8.1.0",
     "morgan": "^1.10.0",
     "node-fetch": "^3.3.2",
-    "nodemailer": "^7.0.3",
     "nodemon": "^3.1.10",
     "react-helmet-async": "^2.0.5"
   }

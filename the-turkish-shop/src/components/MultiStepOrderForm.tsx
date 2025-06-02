@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom'; // Added Link
 import { useTheme } from '../contexts/ThemeContext';
 import { createOrder, uploadPaymentProof } from '../firebase/orderService';
 import { usePromoCode as updatePromoCodeUsage } from '../firebase/promoCodeService';
@@ -412,14 +413,60 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
     setFormError(null);
     
     try {
+      // This is part of step navigation, not final submission logic by itself.
+      // The actual order creation happens when currentStep is 'confirmation'.
       if (currentStep !== 'confirmation') {
+        // Original logic for step navigation - assuming this is intended.
+        // If currentStep is 'delivery', it seems to imply moving *back* to 'payment'
+        // which is unusual for a "next" step button.
+        // Or, if it's 'payment', it moves to 'confirmation'.
+        // This might need review for clarity, but preserving existing flow for now.
         setCurrentStep(currentStep === 'delivery' ? 'payment' : 'confirmation');
         setIsLoading(false);
         return;
       }
 
-      // Check if payment proof is required and provided
-      if (paymentMethod === 'paypal' && !paymentProof) {
+      // --- Start of new/modified logic for screenshot upload ---
+      let finalScreenshotUrl: string | null = paymentScreenshotUrl; // Use pre-uploaded URL if available
+
+      if (paymentMethod === 'paypal' && paymentProof) { // If PayPal and a new file is selected
+        try {
+          // We need a unique identifier for the upload path.
+          // If orderID is not yet available, use userID + timestamp.
+          const placeholderId = currentUser ? `paypal-${currentUser.uid}-${Date.now()}` : `paypal-guest-${Date.now()}`;
+          
+          if (typeof uploadPaymentProof !== 'function') {
+            console.error("uploadPaymentProof is not available or not a function");
+            setFormError("Screenshot upload service is currently unavailable. Please try again later.");
+            setIsLoading(false);
+            return;
+          }
+          
+          // Corrected argument order: orderID (placeholderId), then imageData (paymentProof)
+          if (paymentProof instanceof File) { // Explicit type guard
+            finalScreenshotUrl = await uploadPaymentProof(placeholderId, paymentProof);
+          } else {
+            // This should not be reached due to the outer if (paymentMethod === 'paypal' && paymentProof)
+            console.error("Critical error: paymentProof was expected to be a File but it is not.");
+            setFormError("A problem occurred with the payment proof file. Please re-select it.");
+            setIsLoading(false);
+            return;
+          }
+          // Update state as well so UI reflects the direct upload if needed elsewhere,
+          // though handleSubmit is the critical point for orderData.
+          setPaymentScreenshotUrl(finalScreenshotUrl);
+
+        } catch (uploadError: any) {
+          console.error("Error uploading payment proof during submit:", uploadError);
+          setFormError(uploadError.message || 'Failed to upload payment proof. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+      // --- End of new/modified logic for screenshot upload ---
+
+      // Check if payment proof is required and provided *after potential upload*
+      if (paymentMethod === 'paypal' && !finalScreenshotUrl) {
         setFormError('Please upload your PayPal payment screenshot before proceeding');
         setIsLoading(false);
         return;
@@ -439,8 +486,10 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
       const totalWithDeliveryFee = subtotalAfterDiscount + expressFee;
       
       // Set up payment details based on payment method
-      let paymentDetails = {};
+      let paymentDetails: any = {}; // Ensure paymentDetails is always an object
       if (paymentMethod === 'paypal') {
+        // PayPal details are primarily handled by the payment screenshot
+        // If there are other specific details for PayPal, they can be added here.
         // PayPal details are handled by the payment screenshot
         paymentDetails = {};
       } else if (paymentMethod === 'paysafecard') {
@@ -546,8 +595,9 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
         },
         country: accountCountry || '',
         notes: additionalNotes,
-        // Add screenshot URL if available
-        ...(paymentScreenshotUrl ? { screenshotURL: paymentScreenshotUrl } : {})
+        // Add screenshot URL if available, using the potentially newly uploaded or existing URL
+        ...(finalScreenshotUrl ? { screenshotURL: finalScreenshotUrl } : {}),
+        isExpress: deliveryType === 'Express' // Ensure isExpress is explicitly set
       };
       
       // Create order
@@ -685,16 +735,16 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
         <div className="space-y-8">
           <div>
             <h2 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              How to Receive
+              Delivery Information
             </h2>
             
             <div className={`p-4 rounded-lg border ${
               isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
+            } mb-6`}>
               <div className="mb-4">
                 <div className="flex items-center">
                   <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                    Platform: <span className="text-accent">PC</span>
+                    Platform: <span className="text-accent">PC (Steam)</span>
                   </span>
                 </div>
               </div>
@@ -706,22 +756,11 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
                   </span>
                 </div>
               </div>
-              
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                You'll receive a Steam key that can be redeemed on your Steam account.
-              </p>
-              
-              <div className={`mt-4 bg-gray-100 p-4 rounded-lg ${isDarkMode ? 'bg-gray-700/30 border-gray-600' : ''}`}>
-                <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  How to Redeem Your Steam Key
-                </h3>
-                <ol className={`list-decimal list-inside text-xs space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  <li>Open Steam and log in to your account</li>
-                  <li>Go to Games → Activate a Product on Steam</li>
-                  <li>Enter your key and download the game</li>
-                </ol>
-              </div>
             </div>
+
+            {/* Add PlatformSelector here for Steam games */}
+            <PlatformSelector headerText="How to Receive" />
+            
           </div>
           
           {/* User Info */}
@@ -834,12 +873,12 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
         <div className="space-y-8">
           <div>
             <h2 className={`text-xl font-bold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-              How to Receive
+              Delivery Information
             </h2>
             
             <div className={`p-4 rounded-lg border ${
               isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            }`}>
+            } mb-6`}>
               <div className="mb-4">
                 <div className="flex items-center">
                   <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
@@ -855,22 +894,11 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
                   </span>
                 </div>
               </div>
-              
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                You'll receive a PlayStation code that can be redeemed on your PlayStation account.
-              </p>
-              
-              <div className={`mt-4 bg-gray-100 p-4 rounded-lg ${isDarkMode ? 'bg-gray-700/30 border-gray-600' : ''}`}>
-                <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                  How to Redeem Your PSN Code
-                </h3>
-                <ol className={`list-decimal list-inside text-xs space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  <li>Go to Settings → Users and Accounts → Account → Redeem Code</li>
-                  <li>Enter the 12-digit PlayStation Network code</li>
-                  <li>Confirm to redeem to your account</li>
-                </ol>
-              </div>
             </div>
+
+            {/* Add PlatformSelector here for PlayStation games */}
+            <PlatformSelector headerText="How to Receive" />
+
           </div>
           
           {/* User Info */}
@@ -1084,9 +1112,6 @@ const MultiStepOrderForm: React.FC<MultiStepOrderFormProps> = ({ onOrderCreated 
         {/* Platform Selection for game products */}
         {requiresPlatformSelection() && (
           <PlatformSelector
-            selectedPlatform={selectedPlatform}
-            onChange={setSelectedPlatform}
-            product={items[0]?.name || ''}
             headerText="How to Receive"
           />
         )}

@@ -157,47 +157,166 @@ const OrderDetailModal: React.FC<OrderDetailModalProps> = ({ order, onClose, onO
             isDarkMode ? 'bg-gray-700 bg-opacity-50' : 'bg-gray-100'
           }`}
         >
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-6 md:grid-cols-2">
             <div>
-              <h3 className="mb-2 font-semibold">Product Details</h3>
-              <p>
-                <span className="inline-block w-32 font-medium">Product:</span>{' '}
-                {order.product}
-              </p>
-              <p>
-                <span className="inline-block w-32 font-medium">Price:</span>{' '}
-                {order.price}
-              </p>
-              <p>
-                <span className="inline-block w-32 font-medium">Platform:</span>{' '}
-                {order.platform || 'Not specified'}
-              </p>
-              <p>
-                <span className="inline-block w-32 font-medium">Delivery Type:</span>{' '}
-                {order.deliveryType}
-              </p>
-            </div>
-            <div>
-              <h3 className="mb-2 font-semibold">Customer Details</h3>
-              <p>
-                <span className="inline-block w-32 font-medium">Email:</span>{' '}
-                {order.buyerEmail}
-              </p>
-              <p>
-                <span className="inline-block w-32 font-medium">Country:</span>{' '}
-                {order.country || 'Not specified'}
-              </p>
-              {order.gameUsername && (
+              <h3 className="mb-3 text-lg font-semibold">Product Details</h3>
+              <div className="space-y-1.5 text-sm">
                 <p>
-                  <span className="inline-block w-32 font-medium">Game Username:</span>{' '}
-                  {order.gameUsername}
+                  <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Product:</span>
+                  {order.product}
                 </p>
-              )}
-              <p>
-                <span className="inline-block w-32 font-medium">Notes:</span>{' '}
-                {order.notes || 'None'}
-              </p>
+                {order.tier && (
+                  <p>
+                    <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Tier/Amount:</span>
+                    {order.tier}
+                  </p>
+                )}
+                <p>
+                  <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Price:</span>
+                  {order.currency || '£'}{order.price}
+                </p>
+                {order.displayCurrency && order.displayTotalPrice && order.displayCurrency !== order.currency && (
+                  <p>
+                    <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">User Saw:</span>
+                    {order.displayTotalPrice} {order.displayCurrency}
+                  </p>
+                )}
+                <p>
+                  <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Platform:</span>
+                  {order.platform || 'Not specified'}
+                </p>
+                <p>
+                  <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Delivery Type:</span>
+                  <span className={order.deliveryType === 'Express' ? 'font-semibold text-orange-500' : ''}>
+                    {order.deliveryType}
+                  </span>
+                </p>
+                {order.queuePosition !== undefined && (
+                  <p>
+                    <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Queue Position:</span>
+                    {order.queuePosition}
+                  </p>
+                )}
+                {order.estimatedDeliveryTime && (
+                  <p>
+                    <span className="inline-block w-32 font-medium text-gray-500 dark:text-gray-400">Est. Delivery:</span>
+                    {formatDate(order.estimatedDeliveryTime)}
+                  </p>
+                )}
+              </div>
             </div>
+            <div>
+              <h3 className="mb-3 text-lg font-semibold">Customer Details</h3>
+              <div className="space-y-1.5 text-sm">
+                <p>
+                  <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Email:</span>
+                  {order.buyerEmail}
+                </p>
+                <p>
+                  <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Country:</span>
+                  {order.country || 'Not specified'}
+                </p>
+                {order.gameUsername && (
+                  <p>
+                    <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Game Username:</span>
+                    {order.gameUsername}
+                  </p>
+                )}
+                <p>
+                  <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Customer Notes:</span>
+                  <span className="whitespace-pre-wrap">{order.notes || 'None'}</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Payment Information Section */}
+            <div className="md:col-span-2">
+              <h3 className="mb-3 text-lg font-semibold mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">Payment Information</h3>
+              <div className="space-y-1.5 text-sm">
+                <p>
+                  <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Payment Method:</span>
+                  {order.paymentMethod}
+                </p>
+                {order.paymentDetails && (
+                  <div>
+                    <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400 align-top">Payment Details:</span>
+                    <div className="inline-block">
+                      {order.paymentMethod === 'PayPal' && order.paymentDetails && 'transactionID' in order.paymentDetails && (
+                        <p>Transaction ID: {order.paymentDetails.transactionID || 'Not provided'}</p>
+                      )}
+                      {order.paymentMethod === 'Paysafecard' && order.paymentDetails && 'country' in order.paymentDetails && (
+                        <>
+                          <p>Country: {order.paymentDetails.country}</p>
+                          {order.paymentDetails.code && <p>Code: {order.paymentDetails.code}</p>}
+                        </>
+                      )}
+                      {order.paymentMethod === 'Crypto' && order.paymentDetails && 'walletAddress' in order.paymentDetails && (
+                        <>
+                          <p>Wallet: {String(order.paymentDetails.walletAddress || 'Not provided')}</p>
+                          {'transactionID' in order.paymentDetails && order.paymentDetails.transactionID && (
+                            <p>Transaction ID: {String(order.paymentDetails.transactionID)}</p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {order.promoCode && (
+                  <p>
+                    <span className="inline-block w-36 font-medium text-gray-500 dark:text-gray-400">Promo Code:</span>
+                    {order.promoCode}
+                    {order.promoDiscount !== undefined && (
+                      <span className="text-xs opacity-80"> (Discount: {order.currency || '£'}{order.promoDiscount.toFixed(2)})</span>
+                    )}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Detailed Items (if multi-item order) */}
+            {order.items && order.items.length > 0 && (
+              <div className="md:col-span-2">
+                <h3 className="mb-3 text-lg font-semibold mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">Order Items</h3>
+                <div className={`space-y-2 rounded-md p-3 ${isDarkMode ? 'bg-gray-700/70' : 'bg-gray-50'}`}>
+                  {order.items.map((item, index) => (
+                    <div key={index} className={`py-1.5 ${index > 0 ? 'border-t border-gray-300 dark:border-gray-600' : ''}`}>
+                      <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>{item.product}</p>
+                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
+                        <span>Amount/Tier: {item.amount}</span>
+                        <span>Qty: {item.quantity}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300">
+                        <span>Unit Price: {order.currency || '£'}{item.price}</span>
+                        <span>Subtotal: {order.currency || '£'}{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {order.totalPrice && (
+                     <div className="border-t border-gray-300 dark:border-gray-600 mt-1.5 pt-1.5 flex justify-between">
+                        <span className="text-sm font-bold">Order Total (from items):</span>
+                        <span className="text-sm font-bold">
+                          {order.currency || '£'}{order.totalPrice}
+                        </span>
+                      </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Full Delivery Details from order.deliveryDetails */}
+            {order.deliveryDetails && Object.keys(order.deliveryDetails).length > 0 && (
+              <div className="md:col-span-2">
+                <h3 className="mb-3 text-lg font-semibold mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">Additional Delivery Information</h3>
+                <div className={`space-y-1 text-sm p-3 rounded-md ${isDarkMode ? 'bg-gray-700/70' : 'bg-gray-50'}`}>
+                  {Object.entries(order.deliveryDetails).map(([key, value]) => (
+                    <p key={key}>
+                      <span className="inline-block w-40 font-medium text-gray-500 dark:text-gray-400">{key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}:</span>
+                      <span className="whitespace-pre-wrap">{String(value)}</span>
+                    </p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

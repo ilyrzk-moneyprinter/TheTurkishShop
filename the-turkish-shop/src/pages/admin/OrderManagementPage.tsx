@@ -823,7 +823,7 @@ const OrderManagementPage: React.FC = () => {
                             <>
                               <Check className="h-4 w-4 text-green-500" />
                               <span className="text-sm font-medium text-green-500">
-                                Payment Proof Verified
+                                Payment Proof Uploaded
                               </span>
                             </>
                           ) : (
@@ -835,10 +835,29 @@ const OrderManagementPage: React.FC = () => {
                             </>
                           )}
                         </div>
+                        {selectedOrder.screenshotURL && (
+                          <div className="mt-2">
+                            <p className="text-sm opacity-70 mb-1">Payment Screenshot:</p>
+                            <img 
+                              src={selectedOrder.screenshotURL} 
+                              alt="Payment Proof" 
+                              className="max-w-full h-auto rounded-md border border-gray-300 dark:border-gray-600"
+                              style={{ maxHeight: '300px' }} // Optional: constrain height
+                            />
+                            <a 
+                              href={selectedOrder.screenshotURL} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-block mt-1 text-accent hover:underline text-xs"
+                            >
+                              Open image in new tab
+                            </a>
+                          </div>
+                        )}
                         <p className="text-xs mt-1 opacity-70">
                           {selectedOrder.screenshotURL
-                            ? "Customer has uploaded payment proof. Review screenshot below."
-                            : "Customer must upload PayPal payment proof before order can be processed."
+                            ? "Review uploaded payment proof."
+                            : "Customer must upload PayPal payment proof."
                           }
                         </p>
                       </div>
@@ -910,11 +929,64 @@ const OrderManagementPage: React.FC = () => {
 
                     {selectedOrder.country && (
                       <div>
-                        <p className="text-sm opacity-70">Country</p>
+                        <p className="text-sm opacity-70">Country (from order)</p>
                         <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
                           {selectedOrder.country}
                         </p>
                       </div>
+                    )}
+
+                    {/* Display Currency if different */}
+                    {selectedOrder.displayCurrency && selectedOrder.displayTotalPrice && selectedOrder.displayCurrency !== selectedOrder.currency && (
+                      <div>
+                        <p className="text-sm opacity-70">Amount Displayed to User</p>
+                        <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
+                          {selectedOrder.displayTotalPrice} {selectedOrder.displayCurrency}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Promo Code Details */}
+                    {selectedOrder.promoCode && (
+                      <div>
+                        <p className="text-sm opacity-70">Promo Code Applied</p>
+                        <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
+                          {selectedOrder.promoCode}
+                          {selectedOrder.promoDiscount !== undefined && (
+                            <span className="text-xs opacity-80"> (Discount: {selectedOrder.currency || '£'}{selectedOrder.promoDiscount.toFixed(2)})</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Delivery Type */}
+                    <div>
+                      <p className="text-sm opacity-70">Delivery Type</p>
+                      <p className={`font-medium ${selectedOrder.deliveryType === 'Express' ? 'text-orange-500' : (isDarkMode ? 'text-textLight' : 'text-textDark')}`}>
+                        {selectedOrder.deliveryType}
+                      </p>
+                    </div>
+
+                    {/* Queue Position and Estimated Delivery */}
+                    {(selectedOrder.status === 'queued' || selectedOrder.status === 'in_progress') && (
+                      <>
+                        {selectedOrder.queuePosition !== undefined && (
+                          <div>
+                            <p className="text-sm opacity-70">Queue Position</p>
+                            <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
+                              {selectedOrder.queuePosition}
+                            </p>
+                          </div>
+                        )}
+                        {selectedOrder.estimatedDeliveryTime && (
+                          <div>
+                            <p className="text-sm opacity-70">Est. Delivery Time</p>
+                            <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
+                              {formatDate(selectedOrder.estimatedDeliveryTime)}
+                            </p>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     {selectedOrder.notes && (
@@ -955,209 +1027,28 @@ const OrderManagementPage: React.FC = () => {
                       </div>
                     )}
                     
-                    {/* Payment Screenshot */}
-                    {selectedOrder.screenshotURL ? (
-                      <div>
-                        <p className="text-sm opacity-70">Payment Proof</p>
-                        <div className="mt-2">
-                          <img 
-                            src={selectedOrder.screenshotURL} 
-                            alt="Payment proof" 
-                            className="max-h-96 rounded-lg object-contain bg-gray-900/20 w-full cursor-pointer"
-                            onClick={() => window.open(selectedOrder.screenshotURL, '_blank')}
-                            onError={(e) => {
-                              console.error('Failed to load image:', selectedOrder.screenshotURL);
-                              // Fallback to link if image fails to load
-                              const target = e.target as HTMLImageElement;
-                              const parent = target.parentElement;
-                              if (parent) {
-                                const link = document.createElement('a');
-                                link.href = selectedOrder.screenshotURL || '#';
-                                link.target = '_blank';
-                                link.rel = 'noopener noreferrer';
-                                link.className = 'inline-block text-accent hover:underline';
-                                link.textContent = 'View Payment Proof (External Link)';
-                                parent.innerHTML = '';
-                                parent.appendChild(link);
-                              }
-                            }}
-                          />
-                        </div>
-                        {/* Direct link as backup */}
-                        <a 
-                          href={selectedOrder.screenshotURL} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-block mt-2 text-accent hover:underline text-sm"
-                        >
-                          Open image in new tab
-                        </a>
-                      </div>
-                    ) : selectedOrder.paymentMethod === 'PayPal' && (
-                      <div>
-                        <p className="text-sm opacity-70 text-yellow-500">Payment proof not yet uploaded</p>
-                      </div>
-                    )}
-                    
-                    {/* Delivery Proof Screenshot (if available) */}
-                    {selectedOrder.deliveryProofURL && (
-                      <div>
-                        <p className="text-sm opacity-70">Delivery Proof</p>
-                        <div className="mt-2">
-                          <img 
-                            src={selectedOrder.deliveryProofURL} 
-                            alt="Delivery proof" 
-                            className="max-h-96 rounded-lg object-contain bg-gray-900/20 w-full cursor-pointer"
-                            onClick={() => window.open(selectedOrder.deliveryProofURL, '_blank')}
-                            onError={(e) => {
-                              console.error('Failed to load image:', selectedOrder.deliveryProofURL);
-                              // Fallback to link if image fails to load
-                              const target = e.target as HTMLImageElement;
-                              const parent = target.parentElement;
-                              if (parent) {
-                                const link = document.createElement('a');
-                                link.href = selectedOrder.deliveryProofURL || '#';
-                                link.target = '_blank';
-                                link.rel = 'noopener noreferrer';
-                                link.className = 'inline-block text-accent hover:underline';
-                                link.textContent = 'View Delivery Proof (External Link)';
-                                parent.innerHTML = '';
-                                parent.appendChild(link);
-                              }
-                            }}
-                          />
-                        </div>
-                        {/* Direct link as backup */}
-                        <a 
-                          href={selectedOrder.deliveryProofURL} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-block mt-2 text-accent hover:underline text-sm"
-                        >
-                          Open image in new tab
-                        </a>
-                      </div>
-                    )}
-                    
-                    {/* Additional fields from MultiStepOrderForm */}
-                    
-                    {/* Delivery Type */}
-                    <div>
-                      <p className="text-sm opacity-70">Delivery Type</p>
-                      <div className="flex space-x-2 mt-1">
-                        <button
-                          onClick={() => handleDeliveryTypeUpdate(selectedOrder.orderID, 'Standard')}
-                          className={`px-3 py-1 rounded-lg text-sm ${
-                            selectedOrder.deliveryType === 'Standard'
-                              ? 'bg-blue-500 text-white'
-                              : isDarkMode
-                                ? 'bg-white/5 hover:bg-white/10'
-                                : 'bg-gray-100 hover:bg-gray-200'
-                          }`}
-                        >
-                          Standard
-                        </button>
-                        <button
-                          onClick={() => handleDeliveryTypeUpdate(selectedOrder.orderID, 'Express')}
-                          className={`px-3 py-1 rounded-lg text-sm ${
-                            selectedOrder.deliveryType === 'Express'
-                              ? 'bg-purple-500 text-white'
-                              : isDarkMode
-                                ? 'bg-white/5 hover:bg-white/10'
-                                : 'bg-gray-100 hover:bg-gray-200'
-                          }`}
-                        >
-                          Express
-                        </button>
-                      </div>
-                    </div>
-                    
-                    {/* Queue Position */}
-                    {(selectedOrder.status === 'queued' || selectedOrder.status === 'in_progress') && (
-                      <div>
-                        <p className="text-sm opacity-70">Queue Position</p>
-                        <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
-                          {selectedOrder.queuePosition || 'Not assigned'}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Estimated Delivery Time */}
-                    {selectedOrder.estimatedDeliveryTime && (
-                      <div>
-                        <p className="text-sm opacity-70">Estimated Delivery</p>
-                        <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
-                          {formatDate(selectedOrder.estimatedDeliveryTime)}
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Multiple Accounts Info - Check if it's in deliveryDetails or stored separately */}
-                    {selectedOrder.deliveryDetails && selectedOrder.deliveryDetails.multipleAccounts && (
-                      <div>
-                        <p className="text-sm opacity-70">Multiple Accounts</p>
-                        <div className={`p-2 mt-1 rounded-lg ${isDarkMode ? 'bg-surface' : 'bg-gray-50'}`}>
-                          <pre className="text-sm whitespace-pre-wrap">
-                            {selectedOrder.deliveryDetails.multipleAccounts}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Account Information */}
-                    {selectedOrder.deliveryDetails && (
-                      <>
-                        {selectedOrder.deliveryDetails.accountEmail && (
-                          <div>
-                            <p className="text-sm opacity-70">Account Email</p>
-                            <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
-                              {selectedOrder.deliveryDetails.accountEmail}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {selectedOrder.deliveryDetails.accountPassword && (
-                          <div>
-                            <p className="text-sm opacity-70">Account Password</p>
-                            <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
-                              {selectedOrder.deliveryDetails.accountPassword}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {selectedOrder.deliveryDetails.needs2FA && (
-                          <div>
-                            <p className="text-sm opacity-70">2FA Required</p>
-                            <p className={`font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>
-                              Yes
-                            </p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    
-                    {/* Item details when multiple items in order */}
+                    {/* Detailed Order Items (if cart order) */}
                     {selectedOrder.items && selectedOrder.items.length > 0 && (
                       <div>
-                        <p className="text-sm opacity-70">Order Items</p>
-                        <div className={`mt-1 p-2 rounded-lg ${isDarkMode ? 'bg-surface' : 'bg-gray-50'}`}>
+                        <p className="text-sm opacity-70 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">Detailed Items in Order</p>
+                        <div className={`mt-1 p-2 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                           {selectedOrder.items.map((item, index) => (
-                            <div key={index} className={`py-2 ${index > 0 ? 'border-t border-white/10' : ''}`}>
-                              <div className="flex justify-between">
-                                <span className="text-sm">{item.product}</span>
-                                <span className="text-sm font-medium">
-                                  {selectedOrder.currency || '£'}{item.price} × {item.quantity}
-                                </span>
+                            <div key={index} className={`py-1.5 ${index > 0 ? 'border-t border-gray-300 dark:border-gray-600' : ''}`}>
+                              <p className={`text-sm font-medium ${isDarkMode ? 'text-textLight' : 'text-textDark'}`}>{item.product}</p>
+                              <div className="flex justify-between text-xs opacity-90">
+                                <span>Amount/Tier: {item.amount}</span>
+                                <span>Qty: {item.quantity}</span>
                               </div>
-                              <div className="text-xs opacity-70">
-                                Amount: {item.amount}
+                              <div className="flex justify-between text-xs opacity-90">
+                                <span>Unit Price: {selectedOrder.currency || '£'}{item.price}</span>
+                                <span>Subtotal: {selectedOrder.currency || '£'}{(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
                               </div>
                             </div>
                           ))}
-                          <div className="border-t border-white/10 mt-2 pt-2 flex justify-between">
-                            <span className="text-sm font-medium">Total:</span>
-                            <span className="text-sm font-medium">
-                              {selectedOrder.currency || '£'}{selectedOrder.price}
+                          <div className="border-t border-gray-300 dark:border-gray-600 mt-1.5 pt-1.5 flex justify-between">
+                            <span className="text-sm font-bold">Order Total (from items):</span>
+                            <span className="text-sm font-bold">
+                              {selectedOrder.currency || '£'}{selectedOrder.totalPrice || selectedOrder.price} {/* Fallback to main price if totalPrice not on items sum */}
                             </span>
                           </div>
                         </div>

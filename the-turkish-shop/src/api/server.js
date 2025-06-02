@@ -6,7 +6,6 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const dotenv = require('dotenv');
-const { sendEmail, generateOrderUpdateEmail } = require('./emailService');
 
 // Import routes
 const gamePriceRoutes = require('./routes/gamePrice');
@@ -23,7 +22,6 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      connectSrc: ["'self'", 'https://api.resend.com']
     }
   }
 }));
@@ -85,86 +83,6 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString()
   });
-});
-
-/**
- * Generic email sending endpoint
- * @route POST /api/email/send
- */
-app.post('/api/email/send', async (req, res) => {
-  try {
-    const { to, subject, html, text } = req.body;
-    
-    if (!to || !subject || (!html && !text)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields', 
-        requiredFields: ['to', 'subject', 'html OR text'] 
-      });
-    }
-
-    console.log(`Sending email to ${to}...`);
-    const result = await sendEmail({ to, subject, html, text });
-    
-    if (result.success) {
-      console.log(`Email sent successfully to ${to}`);
-      return res.status(200).json({ success: true, messageId: result.messageId });
-    } else {
-      console.error(`Failed to send email to ${to}:`, result.error);
-      return res.status(500).json({ success: false, error: result.error });
-    }
-  } catch (error) {
-    console.error('Error in email send endpoint:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * Order update notification endpoint
- * @route POST /api/email/order-update
- */
-app.post('/api/email/order-update', async (req, res) => {
-  try {
-    const { order, customerEmail, customerName, status, message } = req.body;
-    
-    if (!order || !order.orderID || !customerEmail || !status) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Missing required fields', 
-        requiredFields: ['order (with orderID)', 'customerEmail', 'status'] 
-      });
-    }
-    
-    // Generate email template
-    const template = generateOrderUpdateEmail(order, status, message || 'Your order status has been updated.');
-    
-    // Add customer name to email if provided
-    let htmlContent = template.html;
-    if (customerName) {
-      htmlContent = htmlContent.replace('Hi there,', `Hi ${customerName},`);
-    }
-    
-    // Send the email
-    const result = await sendEmail({
-      to: customerEmail,
-      subject: template.subject,
-      html: htmlContent,
-      text: template.text
-    });
-    
-    if (result.success) {
-      return res.status(200).json({ 
-        success: true, 
-        messageId: result.messageId,
-        status: 'Order update email sent successfully'
-      });
-    } else {
-      return res.status(500).json({ success: false, error: result.error });
-    }
-  } catch (error) {
-    console.error('Error sending order update email:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
 });
 
 // Register routes
